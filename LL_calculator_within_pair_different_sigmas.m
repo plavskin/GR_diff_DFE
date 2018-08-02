@@ -138,7 +138,7 @@ function [LL,gradient_vector_strain,gradient_vector_global]=LL_calculator_within
 			meshgrid(pair_mean_diff_vector,strain_GR_diff_list);
 		variance_matrix = repmat(pair_sd_diff_vector.^2,[length(strain_GR_diff_list),1]);
 		distance_matrix = subfield_GR_diff_matrix-mean_diff_across_subfields_matrix;
-		var_scaled_distance_matrix = ...
+        var_scaled_distance_matrix = ...
 			distance_matrix./variance_matrix;
 		% d_contingent_GR_diff_probability_matrix_d_mean_diff is not the
 			% true derivative of d_contingent_GR_diff_probability_matrix,

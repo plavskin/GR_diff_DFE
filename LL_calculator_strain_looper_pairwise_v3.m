@@ -7,7 +7,7 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
     strain_mut_effect_start_vals,strain_petite_proportion_start_vals,strain_list,...
     test_strain_list_by_pair,GR_diff_list,strainwise_search_type,max_neg_LL_val,...
     response_vector,fixef_ID_mat,ranef_corr_struct,unique_fixefs,...
-    unique_ranef_categories,order_vector,block_start_positions)
+    unique_ranef_categories,order_vector,block_start_positions,tolx_val, tolfun_val)
     % EP 17-11-07
 
     % Takes in parameters that apply across all test strains
@@ -117,8 +117,8 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
     % set up structure for global solution search
 
         gs = GlobalSearch;
-        gs.TolFun = 10^-4;
-        gs.TolX = 10^-5;
+        gs.TolFun = tolfun_val;
+        gs.TolX = tolx_val;
         gs.NumStageOnePoints = 2^2; % 9
         gs.NumTrialPoints = 3^2; % 90
         gs.StartPointsToRun='bounds';
@@ -165,72 +165,75 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
         % set up list of data to pass to likelihood estimation function
         % find which data in list corresponds to current_strain
         current_indices = find(strcmp(test_strain_list_by_pair,current_strain));
-        strain_current_list = {current_strain};
-        test_strain_current_list = test_strain_list_by_pair(current_indices);
-        GR_diff_current_list = GR_diff_list(current_indices);
+        % only run mle/ll calc if there are samples from current_strain
+            % (this is an issue when working with a random subset of data)
+        if size(current_indices, 1) > 0
+            strain_current_list = {current_strain};
+            test_strain_current_list = test_strain_list_by_pair(current_indices);
+            GR_diff_current_list = GR_diff_list(current_indices);
 
-        % set up starting parameters
-        current_start_values = [current_strain_mut_effect_start_val,...
-            current_strain_petite_proportion_start_val];
-        current_lb_values = [current_strain_mut_effect_lower_bound,...
-            current_strain_petite_proportion_lower_bound];
-        current_ub_values = [current_strain_mut_effect_upper_bound,...
-            current_strain_petite_proportion_upper_bound];
+            % set up starting parameters
+            current_start_values = [current_strain_mut_effect_start_val,...
+                current_strain_petite_proportion_start_val];
+            current_lb_values = [current_strain_mut_effect_lower_bound,...
+                current_strain_petite_proportion_lower_bound];
+            current_ub_values = [current_strain_mut_effect_upper_bound,...
+                current_strain_petite_proportion_upper_bound];
 
-        % figure out whether the current strain has a fixed petite 
-            % proportion or mutation effect
-        % mut_effect_fixed_parameter_values and 
-            % petite_prop_fixed_parameter_values contain NaN at
-            % non-fixed positions
-        strain_param_values = [mut_effect_fixed_parameter_values(strain_idx),...
-            petite_prop_fixed_parameter_values(strain_idx)];
-        fixed_test_strain_params = ~isnan(strain_param_values);
-        current_start_values = current_start_values(~fixed_test_strain_params);
-        current_lb_values = current_lb_values(~fixed_test_strain_params);
-        current_ub_values = current_ub_values(~fixed_test_strain_params);
+            % figure out whether the current strain has a fixed petite 
+                % proportion or mutation effect
+            % mut_effect_fixed_parameter_values and 
+                % petite_prop_fixed_parameter_values contain NaN at
+                % non-fixed positions
+            strain_param_values = [mut_effect_fixed_parameter_values(strain_idx),...
+                petite_prop_fixed_parameter_values(strain_idx)];
+            fixed_test_strain_params = ~isnan(strain_param_values);
+            current_start_values = current_start_values(~fixed_test_strain_params);
+            current_lb_values = current_lb_values(~fixed_test_strain_params);
+            current_ub_values = current_ub_values(~fixed_test_strain_params);
 
-        % 'global' parameters provided to this function are also fixed
-        fixed_parameter_indices = [true(size(current_iter_parameter_values)),...
-            fixed_test_strain_params];
-        fixed_parameter_values = [current_iter_parameter_values,...
-            strain_param_values(fixed_test_strain_params)];
+            % 'global' parameters provided to this function are also fixed
+            fixed_parameter_indices = [true(size(current_iter_parameter_values)),...
+                fixed_test_strain_params];
+            fixed_parameter_values = [current_iter_parameter_values,...
+                strain_param_values(fixed_test_strain_params)];
 
-        % Estimate likelihood for all pairs of current strain
-        % If there are no parameters to fit, just run the likelihood estimation
+            % Estimate likelihood for all pairs of current strain
+            % If there are no parameters to fit, just run the likelihood estimation
 
-        if sum(~fixed_parameter_indices) > 0
-            current_min_problem = createOptimProblem('fmincon','objective',...
-                @(strainwise_parameter_vals_partial) LL_calculator_strains_pairwise_2_sigmas(strainwise_parameter_vals_partial,...
-                    fixed_parameter_indices,fixed_parameter_values,...
-                    strain_current_list,test_strain_current_list,GR_diff_current_list,return_all_grads,max_neg_LL_val),'x0',current_start_values,...
-                'lb',current_lb_values,'ub',current_ub_values,'options',fmincon_opts);
+            if sum(~fixed_parameter_indices) > 0
+                current_min_problem = createOptimProblem('fmincon','objective',...
+                    @(strainwise_parameter_vals_partial) LL_calculator_strains_pairwise_2_sigmas(strainwise_parameter_vals_partial,...
+                        fixed_parameter_indices,fixed_parameter_values,...
+                        strain_current_list,test_strain_current_list,GR_diff_current_list,return_all_grads,max_neg_LL_val),'x0',current_start_values,...
+                    'lb',current_lb_values,'ub',current_ub_values,'options',fmincon_opts);
 
-            if strcmp(strainwise_search_type,'global')
-                [current_out_param_vals,neg_LL_current,exitflag_current,...
-                    output_current,solutions_current]=...
-                    run(gs,current_min_problem);
+                if strcmp(strainwise_search_type,'global')
+                    [current_out_param_vals,neg_LL_current,exitflag_current,...
+                        output_current,solutions_current]=...
+                        run(gs,current_min_problem);
+                else
+                    [current_out_param_vals,neg_LL_current,exitflag_current]=...
+                        fmincon(current_min_problem);
+                end
             else
-                [current_out_param_vals,neg_LL_current,exitflag_current]=...
-                    fmincon(current_min_problem);
+                neg_LL_current = LL_calculator_strains_pairwise_2_sigmas(NaN,...
+                    fixed_parameter_indices,fixed_parameter_values,...
+                    strain_current_list,test_strain_current_list,GR_diff_current_list,...
+                    return_all_grads,max_neg_LL_val);
+                current_out_param_vals = NaN;
             end
-        else
-            neg_LL_current = LL_calculator_strains_pairwise_2_sigmas(NaN,...
-                fixed_parameter_indices,fixed_parameter_values,...
-                strain_current_list,test_strain_current_list,GR_diff_current_list,...
-                return_all_grads,max_neg_LL_val);
-            current_out_param_vals = NaN;
+
+            neg_combined_LL = neg_combined_LL+neg_LL_current;
+
+            corrected_current_param_vals = NaN(1,2);
+            corrected_current_param_vals(fixed_test_strain_params) = ...
+                strain_param_values(fixed_test_strain_params);
+            corrected_current_param_vals(~fixed_test_strain_params) = ...
+                current_out_param_vals;
+
+            test_strain_ML_params(strain_idx,:) = corrected_current_param_vals;
         end
-
-        neg_combined_LL = neg_combined_LL+neg_LL_current;
-
-        corrected_current_param_vals = NaN(1,2);
-        corrected_current_param_vals(fixed_test_strain_params) = ...
-            strain_param_values(fixed_test_strain_params);
-        corrected_current_param_vals(~fixed_test_strain_params) = ...
-            current_out_param_vals;
-
-        test_strain_ML_params(strain_idx,:) = corrected_current_param_vals;
-
 %    toc
 %    disp(current_strain)
 

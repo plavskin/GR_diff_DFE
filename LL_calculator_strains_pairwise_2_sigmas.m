@@ -82,53 +82,57 @@ function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_glob
     for strain_idx = 1:test_strain_number
         current_strain = strain_current_list{strain_idx};
         current_indices = find(strcmp(test_strain_current_list,current_strain));
+        % only run mle/ll calc if there are samples from current_strain
+            % (this is an issue when working with a random subset of data)
+        if size(current_indices, 1) > 0
 
-        test_petite_prop = test_petite_prop_list(strain_idx);
-        test_mean = test_strain_means(strain_idx);
+            test_petite_prop = test_petite_prop_list(strain_idx);
+            test_mean = test_strain_means(strain_idx);
 
-        strain_GR_diff_list = GR_diff_current_list(current_indices);
+            strain_GR_diff_list = GR_diff_current_list(current_indices);
 
-        if nargout > 1
-%            test_mean
-%            ref_mean
-%            test_petite_prop
-%            ref_petite_prop
-%            petite_mean
-%            sigma_colony
-%            %strain_GR_diff_list
-            
-            if return_all_grads
-                [current_LL,current_strain_gradient,current_global_gradient] = ...
-                    LL_calculator_within_pair_different_sigmas(test_mean,ref_mean,...
-                        test_petite_prop,ref_petite_prop,petite_mean,test_sigma,...
-                        ref_sigma,petite_sigma,strain_GR_diff_list,return_all_grads);
-                % account for the fact that test_mean is a function of ref_mean
-                current_contrib_to_ref_mean_grad = current_strain_gradient(1)*test_mean/ref_mean;
-                current_global_gradient(4) = current_global_gradient(4)+current_contrib_to_ref_mean_grad;
-                % add test strain sigma gradient to nonpetite sigma gradient
-                current_global_gradient(2) = current_global_gradient(2)+current_strain_gradient(3);
+            if nargout > 1
+    %            test_mean
+    %            ref_mean
+    %            test_petite_prop
+    %            ref_petite_prop
+    %            petite_mean
+    %            sigma_colony
+    %            %strain_GR_diff_list
 
-                gradient_vector_global = gradient_vector_global+current_global_gradient;
-                
+                if return_all_grads
+                    [current_LL,current_strain_gradient,current_global_gradient] = ...
+                        LL_calculator_within_pair_different_sigmas(test_mean,ref_mean,...
+                            test_petite_prop,ref_petite_prop,petite_mean,test_sigma,...
+                            ref_sigma,petite_sigma,strain_GR_diff_list,return_all_grads);
+                    % account for the fact that test_mean is a function of ref_mean
+                    current_contrib_to_ref_mean_grad = current_strain_gradient(1)*test_mean/ref_mean;
+                    current_global_gradient(4) = current_global_gradient(4)+current_contrib_to_ref_mean_grad;
+                    % add test strain sigma gradient to nonpetite sigma gradient
+                    current_global_gradient(2) = current_global_gradient(2)+current_strain_gradient(3);
+
+                    gradient_vector_global = gradient_vector_global+current_global_gradient;
+
+                else
+                    [current_LL,current_strain_gradient] = ...
+                        LL_calculator_within_pair_different_sigmas(test_mean,ref_mean,test_petite_prop,...
+                            ref_petite_prop,petite_mean,test_sigma,ref_sigma,...
+                            petite_sigma,strain_GR_diff_list,return_all_grads);
+                end
+
+                % convert derivative of test strain mean to derivative of
+                    % mutational effect
+                current_strain_gradient(1) = current_strain_gradient(1)*ref_mean*exp(test_strain_mut_effects(strain_idx));
+                gradient_vector_strain(strain_idx) = current_strain_gradient(1);
+                gradient_vector_strain(test_strain_number+strain_idx) = current_strain_gradient(2);
             else
-                [current_LL,current_strain_gradient] = ...
-                    LL_calculator_within_pair_different_sigmas(test_mean,ref_mean,test_petite_prop,...
-                        ref_petite_prop,petite_mean,test_sigma,ref_sigma,...
-                        petite_sigma,strain_GR_diff_list,return_all_grads);
+                current_LL = LL_calculator_within_pair_different_sigmas(test_mean,ref_mean,...
+                    test_petite_prop,ref_petite_prop,petite_mean,test_sigma,...
+                    ref_sigma,petite_sigma,strain_GR_diff_list,return_all_grads);
             end
 
-            % convert derivative of test strain mean to derivative of
-                % mutational effect
-            current_strain_gradient(1) = current_strain_gradient(1)*ref_mean*exp(test_strain_mut_effects(strain_idx));
-            gradient_vector_strain(strain_idx) = current_strain_gradient(1);
-            gradient_vector_strain(test_strain_number+strain_idx) = current_strain_gradient(2);
-        else
-            current_LL = LL_calculator_within_pair_different_sigmas(test_mean,ref_mean,...
-                test_petite_prop,ref_petite_prop,petite_mean,test_sigma,...
-                ref_sigma,petite_sigma,strain_GR_diff_list,return_all_grads);
+            LL_val = LL_val+current_LL;
         end
-
-        LL_val = LL_val+current_LL;
 
     end
 

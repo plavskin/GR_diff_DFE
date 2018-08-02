@@ -229,10 +229,11 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
 %    strain_petite_proportion_profile_ub = petite_prop_profile_ub_array;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Set up global search structure
-
+    tolx_val = 10^-5;
+    tolfun_val = 10^-4;
     gs = GlobalSearch;
-    gs.TolFun = 10^-4;
-    gs.TolX = 10^-5;
+    gs.TolFun = tolfun_val;
+    gs.TolX = tolx_val;
     gs.NumStageOnePoints = 2^global_param_number; % default = 200; sufficient is 50
     gs.NumTrialPoints = 3^global_param_number; % default = 1000; sufficient is 200
     gs.StartPointsToRun='bounds';
@@ -246,7 +247,7 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
         ms.UseParallel = 0;
     end
 
-    fmincon_opts = optimoptions('fmincon','TolX',10^-5,'TolFun',10^-4,...
+    fmincon_opts = optimoptions('fmincon','TolX',tolx_val,'TolFun',tolfun_val,...
         'Algorithm','interior-point','MaxIter',5000,'MaxFunEvals',12000,...
         'SpecifyObjectiveGradient',true,'CheckGradients',false,'Display','off');
 
@@ -269,7 +270,8 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
             mut_effect_start_values,petite_prop_start_values,strain_list,...
             test_strain_list_by_pair,GR_diff_list,strainwise_search_type,max_neg_LL_val,...
             response_vector,fixef_ID_mat,ranef_corr_struct,unique_fixefs,...
-            unique_ranef_categories,order_vector,block_start_positions),...
+            unique_ranef_categories,order_vector,block_start_positions,...
+            tolx_val, tolfun_val),...
         'x0',global_start_vals_fitted,'lb',global_lower_bounds_fitted,'ub',global_upper_bounds_fitted,...
         'options',fmincon_opts);
     
@@ -322,7 +324,7 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
         test_strain_ML_param_table.Petite_Proportions']);
 
     % if doing mutlistart or global search and one solution didn't converge, replace export_data with NA
-    if exist('solution_counter','var') == 1
+    if exist('solutions_current','var') == 1
         for solution_counter = 1:length(solutions_current)
             temp_exit = solutions_current(solution_counter).Exitflag;
             if temp_exit < 1
@@ -331,7 +333,10 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
         end
     end
 
-    table_headers = [{'LL','runtime_in_secs'} parameter_list];
+    table_headers = [{'LL','runtime_in_secs'} ...
+        regexprep(parameter_list,'[\.,-]','_')];
+        % need to replace periods and dashes in parameter_list with
+            % underscores to make them valid variable names
     T = table(table_data{:},'VariableNames',table_headers);
     writetable(T,output_file);
     
