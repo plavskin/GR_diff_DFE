@@ -57,9 +57,41 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     combined_logspace_array = parameter_identifier(parameter_list,combined_logspace_parameters);
     indices_to_multistart = parameter_identifier(parameter_list,ms_grid_parameter_array);
     test_strain_ML_file = fullfile(datafile_path,strcat('test_strain_params-',...
-        output_id_parameter,'.csv'));
+        output_id_parameter,'_',int2str(external_counter),'.csv'));
     strain_LL_table_file = fullfile(datafile_path,strcat('current_best_strainlooper_LL-',...
-        output_id_parameter,'.csv'));
+        output_id_parameter,'_',int2str(external_counter),'.csv'));
+    % set default parameters for the following if they are not provided
+    if isKey(parameter_dict,'ms_starting_point_file')
+        ms_starting_point_file = parameter_dict('ms_starting_point_file');
+        if exist(ms_starting_point_file, 'file')
+            ms_starting_point_mat = csvread(ms_starting_point_file);
+        else
+            ms_starting_point_mat = NaN;
+        end
+    else
+        ms_starting_point_file = NaN;
+        ms_starting_point_mat = NaN;
+    end
+    if isKey(parameter_dict,'tolx_val')
+        tolx_val = parameter_dict('tolx_val');
+    else
+        tolx_val = 10^-5;
+    end
+    if isKey(parameter_dict,'tolfun_val')
+        tolfun_val = parameter_dict('tolfun_val');
+    else
+        tolfun_val = 10^-5;
+    end
+    if isKey(parameter_dict,'initial_data_fraction')
+        initial_data_fraction = parameter_dict('initial_data_fraction');
+    else
+        initial_data_fraction = 1;
+    end
+    if isKey(parameter_dict,'write_solutions_output')
+        write_solutions_output = parameter_dict('write_solutions_output');
+    else
+        write_solutions_output = false;
+    end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
 %    csv_output_prename,output_folder,
@@ -73,11 +105,13 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
 
     [response_vector,fixef_ID_mat,ranef_corr_struct,unique_fixefs,...
         unique_ranef_categories,order_vector,block_start_positions] = mixef_data_reader(petite_file,response_name,...
-        fixef_name,random_effect_names,block_effect_name,1);
+        fixef_name,random_effect_names,block_effect_name,initial_data_fraction);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Read GR difference phenotype data
 
     data_table = readtable(phenotype_file);
+    indices_to_use = logical(binornd(1,initial_data_fraction,[1 size(data_table,1)]));
+    data_table = data_table(indices_to_use,:);
 
     % assign current data to cell arrays
 
@@ -229,8 +263,6 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
 %    strain_petite_proportion_profile_ub = petite_prop_profile_ub_array;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Set up global search structure
-    tolx_val = 10^-5;
-    tolfun_val = 10^-4;
     gs = GlobalSearch;
     gs.TolFun = tolfun_val;
     gs.TolX = tolx_val;
@@ -294,7 +326,7 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
         indices_to_multistart_fitted = indices_to_multistart(~global_fixed_parameter_indices);
 
         startpoints = MS_Startposition_Generator_v2(indices_to_multistart_fitted,ms_positions,...
-            global_start_vals_fitted,global_lower_bounds_fitted,global_upper_bounds_fitted);
+            global_start_vals_fitted,global_lower_bounds_fitted,global_upper_bounds_fitted,ms_starting_point_mat);
         [vout_current,fval_current,~,~,solutions_current]=...
             run(ms,min_problem_fixed_params,startpoints);
     end
@@ -316,6 +348,9 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     
     runtime = toc(global_start_time);
 
+    % close current parallel pool
+    delete(gcp('nocreate'));
+
     % get data for strain parameters
     test_strain_ML_param_table = readtable(test_strain_ML_file);
     
@@ -331,7 +366,20 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
                 table_data = NaN(size(table_data));
             end
         end
+        % write content of solutions_current to ms_starting_point_file
+        if ~isnan(ms_starting_point_file) & write_solutions_output
+            number_fitted_parameters = size(solutions_current(1).X,2);
+            num_solutions = size(solutions_current,2);
+            point_mat_unsorted = reshape([solutions_current(:).X],[number_fitted_parameters,num_solutions])';
+%            [~,sorted_by_LL_indices] = sort(-[solutions_current(:).Fval],'descend');
+%            point_mat = point_mat_unsorted(sorted_by_LL_indices);
+            point_mat = point_mat_unsorted;
+            compressed_point_mat = Combine_Nearby_Points(point_mat, tolx_val*1.01);
+            csvwrite(ms_starting_point_file,compressed_point_mat);
+        end
     end
+
+
 
     table_headers = [{'LL','runtime_in_secs'} ...
         regexprep(parameter_list,'[\.,-]','_')];
