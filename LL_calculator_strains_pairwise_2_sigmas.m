@@ -1,6 +1,7 @@
 function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_global]=LL_calculator_strains_pairwise_2_sigmas(...
     strainwise_parameter_vals_partial,fixed_parameter_indices,fixed_parameter_values,...
-    strain_current_list,test_strain_current_list,GR_diff_current_list,return_all_grads,max_neg_LL_val)
+    strain_current_list,test_strain_current_list,GR_diff_current_list,return_all_grads,max_neg_LL_val,...
+    current_scaling_array,current_logspace_array)
 	% EP 17-11-07
 
     % calculates the log likelihood of observing a list of differences between
@@ -32,6 +33,7 @@ function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_glob
     param_vals = NaN(size(fixed_parameter_indices));
     param_vals(fixed_parameter_indices) = fixed_parameter_values;
     param_vals(~fixed_parameter_indices) = strainwise_parameter_vals_partial;
+    param_vals = reverse_value_scaler(param_vals,current_logspace_array,current_scaling_array);
 
     petite_sigma = param_vals(1);
         % s.d. of colony GRs of petite distribution
@@ -47,13 +49,18 @@ function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_glob
     ref_sigma = nonpetite_sigma;
     test_sigma = nonpetite_sigma;
 
+    global_param_number = 5;
     test_strain_number = length(strain_current_list);
         % number of strains besides reference strain whose likelihood being fitted
-    test_strain_mut_effects = param_vals(6:(5+test_strain_number));
+    global_param_indices = 1:global_param_number;
+    mut_effect_indices = (global_param_number+1):(global_param_number+test_strain_number);
+    petite_prop_indices = (global_param_number+test_strain_number+1):(global_param_number+2*test_strain_number);
+    non_global_indices = [mut_effect_indices,petite_prop_indices];
+
+    test_strain_mut_effects = param_vals(mut_effect_indices);
     test_strain_means = ref_mean*exp(test_strain_mut_effects);
         % mean growth rates of non-petite colonies for each test strain
-    test_petite_prop_list = param_vals((6+test_strain_number):...
-        (5+2*test_strain_number));
+    test_petite_prop_list = param_vals(petite_prop_indices);
         % proportion of petites in each test strain
 
 %    NaNs_in_pp = sum(isnan(test_petite_prop_list));
@@ -143,15 +150,29 @@ function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_glob
     end
 
     if nargout > 1
-        gradient_vector_partial_strain = gradient_vector_strain(~fixed_parameter_indices(6:end));
+        % rescale gradient vector back to space being used by MLE
+        gradient_vector_strain_scaled = ...
+            gradient_value_rescaler(gradient_vector_strain,...
+            param_vals(non_global_indices),...
+            current_logspace_array(non_global_indices),...
+            current_scaling_array(non_global_indices));
+        gradient_vector_partial_strain = ...
+            gradient_vector_strain_scaled(~fixed_parameter_indices(non_global_indices));
+
         neg_gradient_vector_partial_strain = -gradient_vector_partial_strain;
 
         neg_gradient_vector_partial_strain(neg_gradient_vector_partial_strain>max_neg_LL_val) = max_neg_LL_val;
         neg_gradient_vector_partial_strain(neg_gradient_vector_partial_strain<-max_neg_LL_val) = -max_neg_LL_val;
 
         if return_all_grads
-            neg_gradient_vector_global = -gradient_vector_global;
-            % account for fixed parameters outside of this function
+            % rescale gradient vector back to space being used by MLE
+            gradient_vector_global_scaled = ...
+                gradient_value_rescaler(gradient_vector_global,...
+                param_vals(global_param_indices),...
+                current_logspace_array(global_param_indices),...
+                current_scaling_array(global_param_indices));
+            neg_gradient_vector_global = -gradient_vector_global_scaled;
+                % account for fixed parameters outside of this function
             neg_gradient_vector_global(neg_gradient_vector_global>max_neg_LL_val) = max_neg_LL_val;
             neg_gradient_vector_global(neg_gradient_vector_global<-max_neg_LL_val) = -max_neg_LL_val;
 

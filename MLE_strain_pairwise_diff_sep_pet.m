@@ -35,17 +35,18 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
 
     external_counter = str2double(parameter_dict('external_counter'));
     combined_fixed_parameter_array = parameter_dict('combined_fixed_parameter_array');
-    combined_min_array = parameter_dict('combined_min_array');
-    combined_max_array = parameter_dict('combined_max_array');
+    combined_min_array_unscaled = parameter_dict('combined_min_array');
+    combined_max_array_unscaled = parameter_dict('combined_max_array');
     combined_length_array = parameter_dict('combined_length_array');
     combined_position_array = cellfun(@str2num,parameter_dict('combined_position_array'));
-    combined_start_values_array = parameter_dict('combined_start_values_array');
+    combined_start_values_array_unscaled = parameter_dict('combined_start_values_array');
+    combined_scaling_array = parameter_dict('combined_scaling_array');
     parameter_list = parameter_dict('parameter_list');
     output_file = parameter_dict('output_file');
     parallel_processors = parameter_dict('parallel_processors');
     ms_positions = parameter_dict('ms_positions');
-    combined_profile_ub_array = parameter_dict('combined_profile_ub_array');
-    combined_profile_lb_array = parameter_dict('combined_profile_lb_array');
+    combined_profile_ub_array_unscaled = parameter_dict('combined_profile_ub_array');
+    combined_profile_lb_array_unscaled = parameter_dict('combined_profile_lb_array');
     ms_grid_parameter_array = parameter_dict('ms_grid_parameter_array');
     combined_logspace_parameters = parameter_dict('combined_logspace_parameters');
     datafile_path = parameter_dict('datafile_path');
@@ -75,12 +76,12 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     if isKey(parameter_dict,'tolx_val')
         tolx_val = parameter_dict('tolx_val');
     else
-        tolx_val = 10^-5;
+        tolx_val = 10^-3;
     end
     if isKey(parameter_dict,'tolfun_val')
         tolfun_val = parameter_dict('tolfun_val');
     else
-        tolfun_val = 10^-5;
+        tolfun_val = 10^-2;
     end
     if isKey(parameter_dict,'initial_data_fraction')
         initial_data_fraction = parameter_dict('initial_data_fraction');
@@ -92,6 +93,13 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     else
         write_solutions_output = false;
     end
+
+    % rescale parameters and convert to logspace as needed
+    combined_min_array = value_rescaler(combined_min_array_unscaled,combined_logspace_array,combined_scaling_array);
+    combined_max_array = value_rescaler(combined_max_array_unscaled,combined_logspace_array,combined_scaling_array);
+    combined_start_values_array = value_rescaler(combined_start_values_array_unscaled,combined_logspace_array,combined_scaling_array);
+    combined_profile_ub_array = value_rescaler(combined_profile_ub_array_unscaled,combined_logspace_array,combined_scaling_array);
+    combined_profile_lb_array = value_rescaler(combined_profile_lb_array_unscaled,combined_logspace_array,combined_scaling_array);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
 %    csv_output_prename,output_folder,
@@ -158,6 +166,10 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
         combined_position_array(global_index_list);
     global_start_values = ...
         combined_start_values_array(global_index_list);
+    global_logspace_array = ...
+        combined_logspace_array(global_index_list);
+    global_scaling_array = ...
+        combined_scaling_array(global_index_list);
 
     mut_effect_fixed_parameter_array = ...
         combined_fixed_parameter_array(mut_effect_index_list);
@@ -171,6 +183,10 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
         combined_position_array(mut_effect_index_list);
     mut_effect_start_values = ...
         combined_start_values_array(mut_effect_index_list);
+    mut_effect_logspace_array = ...
+        combined_logspace_array(mut_effect_index_list);
+    mut_effect_scaling_array = ...
+        combined_scaling_array(mut_effect_index_list);
 
     petite_prop_fixed_parameter_array = ...
         combined_fixed_parameter_array(petite_prop_index_list);
@@ -184,6 +200,10 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
         combined_position_array(petite_prop_index_list);
     petite_prop_start_values = ...
         combined_start_values_array(petite_prop_index_list);
+    petite_prop_logspace_array = ...
+        combined_logspace_array(petite_prop_index_list);
+    petite_prop_scaling_array = ...
+        combined_scaling_array(petite_prop_index_list);
 
     global_profile_lb_array = ...
         combined_profile_lb_array(global_index_list);
@@ -197,10 +217,6 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
         combined_profile_lb_array(petite_prop_index_list);
     petite_prop_profile_ub_array = ...
         combined_profile_ub_array(petite_prop_index_list);
-
-    global_logspace_array = combined_logspace_array(global_index_list);
-    mut_effect_logspace_array = combined_logspace_array(mut_effect_index_list);
-    petite_prop_logspace_array = combined_logspace_array(petite_prop_index_list);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % Set up a list of fixed effect values for 'global' parameters (these
@@ -216,16 +232,13 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
 
     global_fixed_parameter_values = ...
         fixed_parameter_processor(global_fixed_parameter_array,global_profile_lb_array,...
-            global_profile_ub_array,global_length_array,global_position_array,...
-            global_logspace_array);
+            global_profile_ub_array,global_length_array,global_position_array);
     mut_effect_fixed_parameter_values = ...
         fixed_parameter_processor(mut_effect_fixed_parameter_array,mut_effect_profile_lb_array,...
-            mut_effect_profile_ub_array,mut_effect_length_array,mut_effect_position_array,...
-            mut_effect_logspace_array);
+            mut_effect_profile_ub_array,mut_effect_length_array,mut_effect_position_array);
     petite_prop_fixed_parameter_values = ...
         fixed_parameter_processor(petite_prop_fixed_parameter_array,petite_prop_profile_lb_array,...
-            petite_prop_profile_ub_array,petite_prop_length_array,petite_prop_position_array,...
-            petite_prop_logspace_array);
+            petite_prop_profile_ub_array,petite_prop_length_array,petite_prop_position_array);
 
     global_fixed_parameter_indices = logical(global_fixed_parameter_array);
 %    mut_effect_fixed_parameter_indices = logical(mut_effect_fixed_parameter_array);
@@ -303,7 +316,9 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
             test_strain_list_by_pair,GR_diff_list,strainwise_search_type,max_neg_LL_val,...
             response_vector,fixef_ID_mat,ranef_corr_struct,unique_fixefs,...
             unique_ranef_categories,order_vector,block_start_positions,...
-            tolx_val, tolfun_val),...
+            tolx_val,tolfun_val,...
+            global_logspace_array,mut_effect_logspace_array,petite_prop_logspace_array,...
+            global_scaling_array,mut_effect_scaling_array,petite_prop_scaling_array),...
         'x0',global_start_vals_fitted,'lb',global_lower_bounds_fitted,'ub',global_upper_bounds_fitted,...
         'options',fmincon_opts);
     
@@ -334,6 +349,7 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     vout_current_corrected = zeros(size(global_fixed_parameter_indices));
     vout_current_corrected(global_fixed_parameter_indices) = global_fixed_parameter_values(~isnan(global_fixed_parameter_values));
     vout_current_corrected(~global_fixed_parameter_indices) = vout_current;
+    vout_current_corrected = reverse_value_scaler(vout_current_corrected,global_logspace_array,global_scaling_array);
 
     % return log-space parameters back to their real values
 %    for parameter_name_counter = 1:length(parameter_names)

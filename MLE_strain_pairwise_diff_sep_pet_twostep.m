@@ -17,8 +17,8 @@ function MLE_strain_pairwise_diff_sep_pet_twostep(key_list, value_list)
         output_id_parameter,'_',int2str(external_counter),'.csv'))
 
     initial_data_fraction = 0.2;
-    tolx_val = 10^-3;
-    tolfun_val = 10^-2;
+    tolx_val = 10^-2;
+    tolfun_val = 10^-1;
     write_solutions_output = true;
 
     % run initial mle with subset of data

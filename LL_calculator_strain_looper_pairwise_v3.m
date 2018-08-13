@@ -7,7 +7,9 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
     strain_mut_effect_start_vals,strain_petite_proportion_start_vals,strain_list,...
     test_strain_list_by_pair,GR_diff_list,strainwise_search_type,max_neg_LL_val,...
     response_vector,fixef_ID_mat,ranef_corr_struct,unique_fixefs,...
-    unique_ranef_categories,order_vector,block_start_positions,tolx_val, tolfun_val)
+    unique_ranef_categories,order_vector,block_start_positions,tolx_val, tolfun_val,...
+    global_logspace_array,mut_effect_logspace_array,petite_prop_logspace_array,...
+    global_scaling_array,mut_effect_scaling_array,petite_prop_scaling_array)
     % EP 17-11-07
 
     % Takes in parameters that apply across all test strains
@@ -54,6 +56,7 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
     param_vals = NaN(size(global_fixed_parameter_indices));
     param_vals(global_fixed_parameter_indices) = global_fixed_parameter_values(~isnan(global_fixed_parameter_values));
     param_vals(~global_fixed_parameter_indices) = param_vals_partial;
+    param_vals = reverse_value_scaler(param_vals,global_logspace_array,global_scaling_array);
     
     petite_sigma = param_vals(1);
         % s.d. of colony GRs of petite distribution
@@ -127,7 +130,7 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
     
     %fmincon_opts = optimset('TolX',10^-7,'TolFun',10^-7,'Algorithm','interior-point','MaxIter',5000,'MaxFunEvals',12000,'UseParallel',true,'GradObj','on','GradConstr','on');
     % 2016 and beyond version:
-    fmincon_opts = optimoptions('fmincon','TolX',10^-5,'TolFun',10^-4,...
+    fmincon_opts = optimoptions('fmincon','TolX',tolx_val,'TolFun',tolfun_val,...
         'Algorithm','interior-point','MaxIter',5000,'MaxFunEvals',12000,...
         'SpecifyObjectiveGradient',true,'CheckGradients',false,'Display','off');
 
@@ -137,6 +140,12 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
 
     % Initialize a matrix for storing test strain mut_effects and petite proportions
     test_strain_ML_params = NaN(test_strain_number,2);
+
+    % global parameters have already been descaled and de-logspaced, so
+        % use these arrays when checking whether to descale them or
+        % de-logspace them in later LL functions
+    global_scaling_for_strain_mle = ones(size(current_iter_parameter_values));
+    global_logspace_for_strain_mle = false(size(current_iter_parameter_values));
 
     tic;
 
@@ -152,15 +161,27 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
         current_strain = strain_list{strain_idx};
         
         % set up starting vals and lower and upper bounds for current strain
-        current_strain_mut_effect_start_val = strain_mut_effect_start_vals(strain_idx);
+        current_strain_mut_effect_start_val = ...
+            strain_mut_effect_start_vals(strain_idx);
         current_strain_petite_proportion_start_val = ...
             strain_petite_proportion_start_vals(strain_idx);
-        current_strain_mut_effect_lower_bound = strain_mut_effect_lower_bounds(strain_idx);
+        current_strain_mut_effect_lower_bound = ...
+            strain_mut_effect_lower_bounds(strain_idx);
         current_strain_petite_proportion_lower_bound = ...
             strain_petite_proportion_lower_bounds(strain_idx);
-        current_strain_mut_effect_upper_bound = strain_mut_effect_upper_bounds(strain_idx);
+        current_strain_mut_effect_upper_bound = ...
+            strain_mut_effect_upper_bounds(strain_idx);
         current_strain_petite_proportion_upper_bound = ...
             strain_petite_proportion_upper_bounds(strain_idx);
+
+        current_strain_mut_effect_scaling_val = ...
+            mut_effect_scaling_array(strain_idx);
+        current_strain_petite_prop_scaling_val = ...
+            petite_prop_scaling_array(strain_idx);
+        current_strain_mut_effect_logspace_val = ...
+            mut_effect_logspace_array(strain_idx);
+        current_strain_petite_prop_logspace_val = ...
+            petite_prop_logspace_array(strain_idx);
         
         % set up list of data to pass to likelihood estimation function
         % find which data in list corresponds to current_strain
@@ -179,6 +200,13 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
                 current_strain_petite_proportion_lower_bound];
             current_ub_values = [current_strain_mut_effect_upper_bound,...
                 current_strain_petite_proportion_upper_bound];
+
+            current_scaling_values = [global_scaling_for_strain_mle,...
+                current_strain_mut_effect_scaling_val,...
+                current_strain_petite_prop_scaling_val];
+            current_logspace_values = [global_logspace_for_strain_mle,...
+                current_strain_mut_effect_logspace_val,...
+                current_strain_petite_prop_logspace_val];
 
             % figure out whether the current strain has a fixed petite 
                 % proportion or mutation effect
@@ -203,9 +231,12 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
 
             if sum(~fixed_parameter_indices) > 0
                 current_min_problem = createOptimProblem('fmincon','objective',...
-                    @(strainwise_parameter_vals_partial) LL_calculator_strains_pairwise_2_sigmas(strainwise_parameter_vals_partial,...
+                    @(strainwise_parameter_vals_partial) ...
+                    LL_calculator_strains_pairwise_2_sigmas(strainwise_parameter_vals_partial,...
                         fixed_parameter_indices,fixed_parameter_values,...
-                        strain_current_list,test_strain_current_list,GR_diff_current_list,return_all_grads,max_neg_LL_val),'x0',current_start_values,...
+                        strain_current_list,test_strain_current_list,GR_diff_current_list,...
+                        return_all_grads,max_neg_LL_val,current_scaling_values,...
+                        current_logspace_values),'x0',current_start_values,...
                     'lb',current_lb_values,'ub',current_ub_values,'options',fmincon_opts);
 
                 if strcmp(strainwise_search_type,'global')
@@ -220,7 +251,8 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
                 neg_LL_current = LL_calculator_strains_pairwise_2_sigmas(NaN,...
                     fixed_parameter_indices,fixed_parameter_values,...
                     strain_current_list,test_strain_current_list,GR_diff_current_list,...
-                    return_all_grads,max_neg_LL_val);
+                    return_all_grads,max_neg_LL_val,current_scaling_values,...
+                        current_logspace_values);
                 current_out_param_vals = NaN;
             end
 
@@ -246,28 +278,35 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
     fixed_parameter_values_grad_calc = [petite_sigma,nonpetite_sigma,petite_GR,...
         ref_GR,ref_petite_proportion,test_strain_ML_params(:,1)',...
         test_strain_ML_params(:,2)'];
+    scaling_array_grad_calc = [global_scaling_for_strain_mle,mut_effect_scaling_array,petite_prop_scaling_array];
+    logspace_array_grad_calc = [global_logspace_for_strain_mle,mut_effect_logspace_array,petite_prop_logspace_array];
     fixed_parameter_indices_grad_calc = true(size(fixed_parameter_values_grad_calc));
-    [neg_LL_current,strain_gradient_vector,global_gradient_vector_no_petites] = LL_calculator_strains_pairwise_2_sigmas(NaN,...
+    [~,~,global_gradient_vector_no_petites] = LL_calculator_strains_pairwise_2_sigmas(NaN,...
                 fixed_parameter_indices_grad_calc,fixed_parameter_values_grad_calc,...
-                strain_list,test_strain_list_by_pair,GR_diff_list,return_all_grads,max_neg_LL_val);
+                strain_list,test_strain_list_by_pair,GR_diff_list,return_all_grads,...
+                max_neg_LL_val,scaling_array_grad_calc,logspace_array_grad_calc);
     % In this case, the strain_gradient_vector output is blank,
             % which happens when all strain parameters are fixed in
             % LL_calculator_strains_pairwise
-    global_gradient_vector = zeros(size(param_vals));
+    unscaled_global_gradient_vector = zeros(size(param_vals));
     % d_LL_d_petite_sigma
-    global_gradient_vector(1) = gradient_vector_partial_petite(5) + ...
+    unscaled_global_gradient_vector(1) = gradient_vector_partial_petite(5) + ...
         global_gradient_vector_no_petites(1);
     % d_LL_d_nonpetite_sigma
-    global_gradient_vector(2) = global_gradient_vector_no_petites(2);
+    unscaled_global_gradient_vector(2) = global_gradient_vector_no_petites(2);
     % d_LL_d_petite_GR
-    global_gradient_vector(3) = gradient_vector_partial_petite(4) + ...
+    unscaled_global_gradient_vector(3) = gradient_vector_partial_petite(4) + ...
         global_gradient_vector_no_petites(3);
     % d_LL_d_ref_GR
-    global_gradient_vector(4) = global_gradient_vector_no_petites(4);
+    unscaled_global_gradient_vector(4) = global_gradient_vector_no_petites(4);
     % d_LL_d_ref_petite_proportion
-    global_gradient_vector(5) = global_gradient_vector_no_petites(5);
+    unscaled_global_gradient_vector(5) = global_gradient_vector_no_petites(5);
     % d_LL_d_ranef
-    global_gradient_vector(6:8) = gradient_vector_partial_petite(1:3);
+    unscaled_global_gradient_vector(6:8) = gradient_vector_partial_petite(1:3);
+
+    % rescale global_gradient_vector
+    global_gradient_vector = gradient_value_rescaler(unscaled_global_gradient_vector,...
+        param_vals,global_logspace_array,global_scaling_array);
 
     global_gradient_vector_partial = global_gradient_vector(~global_fixed_parameter_indices);
 
@@ -297,8 +336,10 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
 
     if write_output
         Strain_Names = {strain_list{:}}';
-        Mutation_Effects = test_strain_ML_params(:,1);
-        Petite_Proportions = test_strain_ML_params(:,2);
+        Mutation_Effects = reverse_value_scaler(test_strain_ML_params(:,1)',...
+            mut_effect_logspace_array,mut_effect_scaling_array)';
+        Petite_Proportions = reverse_value_scaler(test_strain_ML_params(:,2)',...
+            petite_prop_logspace_array,petite_prop_scaling_array)';
         export_table = table(Strain_Names,Mutation_Effects,Petite_Proportions);
 
         Current_Best_LL = -neg_combined_LL;
