@@ -120,8 +120,8 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
     % set up structure for global solution search
 
         gs = GlobalSearch;
-        gs.TolFun = tolfun_val;
-        gs.TolX = tolx_val;
+        gs.TolFun = tolfun_val/(test_strain_number*1.1);
+        gs.TolX = tolx_val/(test_strain_number*1.1);
         gs.NumStageOnePoints = 2^2; % 9
         gs.NumTrialPoints = 3^2; % 90
         gs.StartPointsToRun='bounds';
@@ -130,7 +130,7 @@ function [neg_combined_LL,global_gradient_vector_partial] = LL_calculator_strain
     
     %fmincon_opts = optimset('TolX',10^-7,'TolFun',10^-7,'Algorithm','interior-point','MaxIter',5000,'MaxFunEvals',12000,'UseParallel',true,'GradObj','on','GradConstr','on');
     % 2016 and beyond version:
-    fmincon_opts = optimoptions('fmincon','TolX',tolx_val,'TolFun',tolfun_val,...
+    fmincon_opts = optimoptions('fmincon','TolX',tolx_val/(test_strain_number*1.1),'TolFun',tolfun_val/(test_strain_number*1.1),...
         'Algorithm','interior-point','MaxIter',5000,'MaxFunEvals',12000,...
         'SpecifyObjectiveGradient',true,'CheckGradients',false,'Display','off');
 
