@@ -138,9 +138,9 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     strain_number = length(strain_params)/2;
     mut_effect_parameter_list = strain_params(1:strain_number);
     %strain_list = regexprep(mut_effect_parameter_list,'-.*$','');
-    strain_list = regexprep(mut_effect_parameter_list,'-.\w$','');
-        % removes everything after last dash followed only by word
-            % characters (including the dash)
+    strain_list = regexprep(mut_effect_parameter_list,'_.\w$','');
+        % removes everything after final underscore followed only by word
+            % characters (including the underscore)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
