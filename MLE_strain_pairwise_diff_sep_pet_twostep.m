@@ -22,8 +22,11 @@ function MLE_strain_pairwise_diff_sep_pet_twostep(key_list, value_list)
     write_solutions_output = true;
 
     % run initial mle with subset of data
-    key_list_prerun = [key_list {'ms_starting_point_file','initial_data_fraction','tolx_val','tolfun_val','write_solutions_output'}];
-    value_list_prerun = [value_list {ms_starting_point_file,initial_data_fraction,tolx_val,tolfun_val,write_solutions_output}];
+    key_list_prerun = [key_list {'ms_starting_point_file','initial_data_fraction','write_solutions_output'}];
+    value_list_prerun = [value_list {ms_starting_point_file,initial_data_fraction,write_solutions_output}];
+
+    value_list_prerun(ismember(key_list_prerun,'tolx_val')) = tolx_val;
+    value_list_prerun(ismember(key_list_prerun,'tolfun_val')) = tolfun_val;
 
     MLE_strain_pairwise_diff_sep_pet(key_list_prerun, value_list_prerun);
 

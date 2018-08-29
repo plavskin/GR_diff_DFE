@@ -51,6 +51,8 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     combined_logspace_parameters = parameter_dict('combined_logspace_parameters');
     datafile_path = parameter_dict('datafile_path');
     output_id_parameter = parameter_dict('output_id_parameter');
+    tolx_val = parameter_dict('tolx_val');
+    tolfun_val = parameter_dict('tolfun_val');
     % optional parameters
     phenotype_file = parameter_dict('phenotype_file');
     petite_file = parameter_dict('petite_file');
@@ -72,16 +74,6 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     else
         ms_starting_point_file = NaN;
         ms_starting_point_mat = NaN;
-    end
-    if isKey(parameter_dict,'tolx_val')
-        tolx_val = parameter_dict('tolx_val');
-    else
-        tolx_val = 10^-3;
-    end
-    if isKey(parameter_dict,'tolfun_val')
-        tolfun_val = parameter_dict('tolfun_val');
-    else
-        tolfun_val = 10^-2;
     end
     if isKey(parameter_dict,'initial_data_fraction')
         initial_data_fraction = parameter_dict('initial_data_fraction');
