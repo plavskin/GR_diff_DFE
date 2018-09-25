@@ -364,7 +364,7 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
     
     table_data = num2cell([-fval_current,runtime,vout_current_corrected,...
         test_strain_ML_param_table.Mutation_Effects',...
-        test_strain_ML_param_table.Petite_Proportions']);
+        test_strain_ML_param_table.Petite_Proportions', external_counter]);
 
     % if doing mutlistart or global search and one solution didn't converge, replace export_data with NA
     if exist('solutions_current','var') == 1
@@ -390,7 +390,7 @@ function MLE_strain_pairwise_diff_sep_pet(key_list, value_list)
 
 
     table_headers = [{'LL','runtime_in_secs'} ...
-        regexprep(parameter_list,'[\.,-]','_')];
+        regexprep(parameter_list,'[\.,-]','_'),{'point_num'}];
         % need to replace periods and dashes in parameter_list with
             % underscores to make them valid variable names
     T = table(table_data{:},'VariableNames',table_headers);
