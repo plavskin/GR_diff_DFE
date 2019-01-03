@@ -1,7 +1,5 @@
-function [neg_LL,gradient_vector_partial] = LL_mixef_calc_v5b(fitted_parameters,...
-    fixed_parameter_indices,fixed_parameter_values,response_vector,ranef_corr_struct,...
-    fixef_ID_mat,nonref_indices,unique_ranef_categories,calculate_gradient,...
-    order_vector,block_start_positions)
+function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(param_vals,...
+    input_value_dict, pre_MLE_output_dict)
 
     % first num_ranef elements of fitted_parameters are current guesses for
         % ranef std
@@ -13,35 +11,53 @@ function [neg_LL,gradient_vector_partial] = LL_mixef_calc_v5b(fitted_parameters,
 
 %    disp('starting lme')
 
-    param_vals = NaN(size(fixed_parameter_indices));
-    param_vals(fixed_parameter_indices) = fixed_parameter_values(~isnan(fixed_parameter_values));
-    param_vals(~fixed_parameter_indices) = fitted_parameters;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ranef_corr_struct = pre_MLE_output_dict('ranef_corr_struct');
+    response_vector = pre_MLE_output_dict('response_vector');
+    fixef_ID_mat = pre_MLE_output_dict('fixef_ID_mat');
+    unique_ranef_categories = pre_MLE_output_dict('unique_ranef_categories');
+    order_vector = pre_MLE_output_dict('order_vector');
+    block_start_positions = pre_MLE_output_dict('block_start_positions');
+    fixef_names = pre_MLE_output_dict('unique_fixefs');
 
-    ranef_names = fieldnames(ranef_corr_struct);
+    calculate_gradient = input_value_dict('gradient_specification');
+    parameter_list = input_value_dict('parameter_list');
+    ranef_names = input_value_dict('random_effect_names');
+    intercept_parameter = input_value_dict('intercept_parameter');
+
+    parameter_dict = containers.Map(parameter_list,param_vals);
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     num_ranef = length(ranef_names);
     num_responses = length(response_vector);
-    num_fixef = size(fixef_ID_mat,2);
-    
-    ranef_guess_list = param_vals(1:num_ranef);
-    fixef_guess_list = param_vals((num_ranef+1):(num_ranef+num_fixef));
-    sigma_guess_list = param_vals((num_ranef+num_fixef+1):(num_ranef+2*num_fixef));
 
-    fixef_intercept_guess = fixef_guess_list(~nonref_indices);
-    fixef_slopes_guess = fixef_guess_list(nonref_indices);
-    sigma_intercept_guess = sigma_guess_list(~nonref_indices);
-    sigma_slopes_guess = sigma_guess_list(nonref_indices);
+    ranef_guess_list = cell2mat(values(parameter_dict, ranef_names));
+    fixef_guess_list = cell2mat(values(parameter_dict, fixef_names));
+    
+    if isempty(intercept_parameter)
+        slope_bool = true(size(fixef_names));
+        fixef_intercept_guess = 0;
+    else
+        slope_bool = ~ismember(fixef_names,intercept_parameter);
+        fixef_intercept_guess = fixef_guess_list(~slope_bool);
+    end
+   
+%    sigma_guess_list = param_vals((num_ranef+num_fixef+1):(num_ranef+2*num_fixef));
+
+    fixef_slopes_guess = fixef_guess_list(slope_bool);
+%    sigma_intercept_guess = sigma_guess_list(~slope_bool);
+%    sigma_slopes_guess = sigma_guess_list(slope_bool);
 
     % get a vector of population (expected) means and s.d. for growth rates of each colony
-    fixef_guess_relative = zeros(size(nonref_indices));
-    fixef_guess_relative(nonref_indices) = fixef_slopes_guess;
+    fixef_guess_relative = zeros(size(slope_bool));
+    fixef_guess_relative(slope_bool) = fixef_slopes_guess;
     fixef_guess = fixef_guess_relative+fixef_intercept_guess;
 
-    sigma_guess_relative = zeros(size(nonref_indices));
-    sigma_guess_relative(nonref_indices) = sigma_slopes_guess;
-    sigma_guess = sigma_guess_relative+sigma_intercept_guess;
+%    sigma_guess_relative = zeros(size(slope_bool));
+%    sigma_guess_relative(slope_bool) = sigma_slopes_guess;
+%    sigma_guess = sigma_guess_relative+sigma_intercept_guess;
 
     mean_vector = fixef_ID_mat*fixef_guess';
-    sigma_vector = fixef_ID_mat*sigma_guess';
+%    sigma_vector = fixef_ID_mat*sigma_guess';
 
     %tic;
     
@@ -50,11 +66,16 @@ function [neg_LL,gradient_vector_partial] = LL_mixef_calc_v5b(fitted_parameters,
 
 %    disp('starting ranef calculations')
 
-    unique_ranef_categories_with_sigma = [unique_ranef_categories,num_responses];
-    total_unique_ranef_states = sum(unique_ranef_categories_with_sigma);
-    total_nonzero_elements = (num_ranef+1)*num_responses;
-    ranef_column_start_positions = 1+[0,cumsum(unique_ranef_categories_with_sigma)];
-    ranef_column_end_positions = cumsum(unique_ranef_categories_with_sigma);
+%    unique_ranef_categories_with_sigma = [unique_ranef_categories,num_responses];
+%    total_unique_ranef_states = sum(unique_ranef_categories_with_sigma);
+%    total_nonzero_elements = (num_ranef)*num_responses;
+%    ranef_column_start_positions = 1+[0,cumsum(unique_ranef_categories_with_sigma)];
+%    ranef_column_end_positions = cumsum(unique_ranef_categories_with_sigma);
+    total_unique_ranef_states = sum(unique_ranef_categories);
+    total_nonzero_elements = (num_ranef)*num_responses;
+    ranef_column_start_positions = 1+[0,cumsum(unique_ranef_categories)];
+    ranef_column_end_positions = cumsum(unique_ranef_categories);
+
 
     Lambda = spalloc(num_responses,total_unique_ranef_states,total_nonzero_elements);
     
@@ -76,12 +97,12 @@ function [neg_LL,gradient_vector_partial] = LL_mixef_calc_v5b(fitted_parameters,
     clear current_ranef_cov_struct
 %    clear ranef_corr_struct
 
-    % include residual (strain-specific sigma) effects in Lambda matrix
-    current_first_column = ranef_column_start_positions(num_ranef+1);
-    current_last_column = ranef_column_end_positions(num_ranef+1);
+%    % include residual (strain-specific sigma) effects in Lambda matrix
+%    current_first_column = ranef_column_start_positions(num_ranef+1);
+%    current_last_column = ranef_column_end_positions(num_ranef+1);
 
-    Lambda(:,current_first_column:current_last_column) = ...
-        spdiags(sigma_vector,0,num_responses,num_responses);
+%    Lambda(:,current_first_column:current_last_column) = ...
+%        spdiags(sigma_vector,0,num_responses,num_responses);
 
     total_cov = Lambda*Lambda';
 
@@ -91,11 +112,11 @@ function [neg_LL,gradient_vector_partial] = LL_mixef_calc_v5b(fitted_parameters,
 
     [order_vector,block_structure] = Block_Finder(total_cov,order_vector,block_start_positions);
     
-    neg_LL = 0;
+    LL = 0;
     block_number = size(block_structure,2);
 
     if calculate_gradient
-        gradient_vector = zeros(size(param_vals));
+        unscaled_gradient_vector = zeros([1 length(ranef_names)+length(fixef_names)]);
     end
 
     for block_counter=1:block_number
@@ -124,7 +145,7 @@ function [neg_LL,gradient_vector_partial] = LL_mixef_calc_v5b(fitted_parameters,
             ((-1/2)*(current_diff_vector_over_cov)*current_diff_vector);
 
 %        disp('LL calculated')
-        neg_LL = neg_LL - current_LL;
+        LL = LL + current_LL;
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         if calculate_gradient
@@ -134,18 +155,18 @@ function [neg_LL,gradient_vector_partial] = LL_mixef_calc_v5b(fitted_parameters,
             % calculate gradient relative to fixef
             d_LL_d_fixef_guess = current_diff_vector_over_cov*current_fixef_ID_mat;
             d_LL_d_fixef_intercept = sum(d_LL_d_fixef_guess);
-            d_LL_d_fixef_slopes = d_LL_d_fixef_guess(nonref_indices);
-            d_LL_d_fixef = NaN(size(nonref_indices));
-            d_LL_d_fixef(nonref_indices) = d_LL_d_fixef_slopes;
-            d_LL_d_fixef(~nonref_indices) = d_LL_d_fixef_intercept;
+            d_LL_d_fixef_slopes = d_LL_d_fixef_guess(slope_bool);
+            d_LL_d_fixef = NaN(size(slope_bool));
+            d_LL_d_fixef(slope_bool) = d_LL_d_fixef_slopes;
+            d_LL_d_fixef(~slope_bool) = d_LL_d_fixef_intercept;
 
             % calculate gradient relative to ranef (excluding residuals)
             d_LL_d_ranef = NaN(1,num_ranef);
 
             for current_ranef_index = 1:num_ranef
 
-                current_first_column = ranef_column_start_positions(current_ranef_index);
-                current_last_column = ranef_column_end_positions(current_ranef_index);
+%                current_first_column = ranef_column_start_positions(current_ranef_index);
+%                current_last_column = ranef_column_end_positions(current_ranef_index);
 
                 current_ranef_name = ranef_names(current_ranef_index);
                 total_ranef_cov_positions = ranef_corr_struct.(current_ranef_name{:});
@@ -166,41 +187,39 @@ function [neg_LL,gradient_vector_partial] = LL_mixef_calc_v5b(fitted_parameters,
 
             end
 
-            % calculate gradient relative to inter-individual sd (residuals)
-            d_LL_d_sigma_guess = NaN(1,length(sigma_guess));
-
-            for current_sigma_index = 1:length(sigma_guess)
-
-                current_sigma = sigma_guess(current_sigma_index);
-                current_diagonal = current_fixef_ID_mat(:,current_sigma_index);
-                current_cov_mat_positions = spdiags(current_diagonal,0,...
-                    current_num_responses,current_num_responses);
-
-                d_LL_d_current_sigma = d_LL_d_cov_component(current_sigma,...
-                    current_cov_mat_positions,current_cov,current_diff_vector,...
-                    current_diff_vector_over_cov);
-
-                d_LL_d_sigma_guess(current_sigma_index) = d_LL_d_current_sigma;
-
-            end
-
-            d_LL_d_sigma_intercept = sum(d_LL_d_sigma_guess);
-            d_LL_d_sigma_slopes = d_LL_d_sigma_guess(nonref_indices);
-            d_LL_d_sigma = NaN(size(nonref_indices));
-            d_LL_d_sigma(nonref_indices) = d_LL_d_sigma_slopes;
-            d_LL_d_sigma(~nonref_indices) = d_LL_d_sigma_intercept;
+%            % calculate gradient relative to inter-individual sd (residuals)
+%            d_LL_d_sigma_guess = NaN(1,length(sigma_guess));
+%
+%            for current_sigma_index = 1:length(sigma_guess)
+%
+%                current_sigma = sigma_guess(current_sigma_index);
+%                current_diagonal = current_fixef_ID_mat(:,current_sigma_index);
+%                current_cov_mat_positions = spdiags(current_diagonal,0,...
+%                    current_num_responses,current_num_responses);
+%
+%                d_LL_d_current_sigma = d_LL_d_cov_component(current_sigma,...
+%                    current_cov_mat_positions,current_cov,current_diff_vector,...
+%                    current_diff_vector_over_cov);
+%
+%                d_LL_d_sigma_guess(current_sigma_index) = d_LL_d_current_sigma;
+%
+%            end
+%
+%            d_LL_d_sigma_intercept = sum(d_LL_d_sigma_guess);
+%            d_LL_d_sigma_slopes = d_LL_d_sigma_guess(slope_bool);
+%            d_LL_d_sigma = NaN(size(slope_bool));
+%            d_LL_d_sigma(slope_bool) = d_LL_d_sigma_slopes;
+%            d_LL_d_sigma(~slope_bool) = d_LL_d_sigma_intercept;
 
             % combined gradients into single vector
-            gradient_vector = gradient_vector-[d_LL_d_ranef,d_LL_d_fixef,d_LL_d_sigma];
+%            gradient_vector = gradient_vector-[d_LL_d_ranef,d_LL_d_fixef,d_LL_d_sigma];
+            unscaled_gradient_vector = unscaled_gradient_vector+[d_LL_d_ranef,d_LL_d_fixef];
         else
-            gradient_vector = NaN(size(param_vals));
+            unscaled_gradient_vector = [];
         end
 
 
     end
-
-    clear current_cov
-
-    gradient_vector_partial = gradient_vector(~fixed_parameter_indices);
+    grad_parameter_names = [ranef_names, fixef_names];
 
 end
