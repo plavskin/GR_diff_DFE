@@ -1,7 +1,7 @@
 function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_global]=LL_calculator_strains_pairwise_2_sigmas(...
     strainwise_parameter_vals_partial,fixed_parameter_indices,fixed_parameter_values,...
     strain_current_list,test_strain_current_list,GR_diff_current_list,return_all_grads,max_neg_LL_val,...
-    current_scaling_array,current_logspace_array)
+    current_scaling_values,current_logspace_bool)
 	% EP 17-11-07
 
     % calculates the log likelihood of observing a list of differences between
@@ -31,9 +31,9 @@ function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_glob
     % compile a list of all parameters, fixed or fitted, and identify values
         % belonging to each individual parameter using that list
     param_vals = NaN(size(fixed_parameter_indices));
-    param_vals(fixed_parameter_indices) = fixed_parameter_values;
+    param_vals(fixed_parameter_indices) = fixed_parameter_values(fixed_parameter_indices);
     param_vals(~fixed_parameter_indices) = strainwise_parameter_vals_partial;
-    param_vals = reverse_value_scaler(param_vals,current_logspace_array,current_scaling_array);
+    param_vals = reverse_value_scaler(param_vals,current_logspace_bool,current_scaling_values);
 
     petite_sigma = param_vals(1);
         % s.d. of colony GRs of petite distribution
@@ -78,7 +78,7 @@ function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_glob
     % initialize the log likelihood
     LL_val = 0;
     if nargout > 1
-        gradient_vector_strain = zeros(size(test_strain_number*2,1));
+        gradient_vector_strain = zeros([1,test_strain_number*2]);
 
         if return_all_grads
             gradient_vector_global = [0,0,0,0,0];
@@ -154,29 +154,29 @@ function [neg_LL_val,neg_gradient_vector_partial_strain,neg_gradient_vector_glob
         gradient_vector_strain_scaled = ...
             gradient_value_rescaler(gradient_vector_strain,...
             param_vals(non_global_indices),...
-            current_logspace_array(non_global_indices),...
-            current_scaling_array(non_global_indices));
-        gradient_vector_partial_strain = ...
-            gradient_vector_strain_scaled(~fixed_parameter_indices(non_global_indices));
+            current_logspace_bool(non_global_indices),...
+            current_scaling_values(non_global_indices));
 
+        if return_all_grads
+            gradient_vector_partial_strain = gradient_vector_strain_scaled;
+            % rescale gradient vector back to space being used by MLE
+            gradient_vector_global_scaled = ...
+                gradient_value_rescaler(gradient_vector_global,...
+                param_vals(global_param_indices),...
+                current_logspace_bool(global_param_indices),...
+                current_scaling_values(global_param_indices));
+            neg_gradient_vector_global = -gradient_vector_global_scaled;
+                % account for fixed parameters outside of this function
+            neg_gradient_vector_global(neg_gradient_vector_global>max_neg_LL_val) = max_neg_LL_val;
+            neg_gradient_vector_global(neg_gradient_vector_global<-max_neg_LL_val) = -max_neg_LL_val;
+        else
+            gradient_vector_partial_strain = ...
+            gradient_vector_strain_scaled(~fixed_parameter_indices(non_global_indices));
+        end
         neg_gradient_vector_partial_strain = -gradient_vector_partial_strain;
 
         neg_gradient_vector_partial_strain(neg_gradient_vector_partial_strain>max_neg_LL_val) = max_neg_LL_val;
         neg_gradient_vector_partial_strain(neg_gradient_vector_partial_strain<-max_neg_LL_val) = -max_neg_LL_val;
 
-        if return_all_grads
-            % rescale gradient vector back to space being used by MLE
-            gradient_vector_global_scaled = ...
-                gradient_value_rescaler(gradient_vector_global,...
-                param_vals(global_param_indices),...
-                current_logspace_array(global_param_indices),...
-                current_scaling_array(global_param_indices));
-            neg_gradient_vector_global = -gradient_vector_global_scaled;
-                % account for fixed parameters outside of this function
-            neg_gradient_vector_global(neg_gradient_vector_global>max_neg_LL_val) = max_neg_LL_val;
-            neg_gradient_vector_global(neg_gradient_vector_global<-max_neg_LL_val) = -max_neg_LL_val;
-
-        end
     end
-
 end
