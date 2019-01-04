@@ -29,7 +29,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     tolfun_val = input_value_dict('fun_tolerance');
     max_neg_LL_val = input_value_dict('max_neg_LL_val');
     random_effect_names = input_value_dict('random_effect_names');
-    global_mle_parameter_names = input_value_dict('global_mle_parameter_names');
+    global_mle_parameter_names = input_value_dict('mle_parameter_names');
     
     strain_list = pre_MLE_output_dict('strain_list');
     test_strain_list_by_pair = pre_MLE_output_dict('test_strain_list_by_pair');
@@ -45,9 +45,9 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         % s.d. of colony GRs of petite distribution
     nonpetite_colony_sigma = parameter_dict('nonpetite_colony_sigma');
         % s.d. of colony GRs of non-petite reference and test strain distribution
-    petite_GR = parameter_dict('petite_GR');
+    petite_mean = parameter_dict('petite_mean');
         % mean growth rate of petite colonies, regardless of genotype
-    ref_GR = parameter_dict('ref_GR');
+    ref_mean = parameter_dict('ref_mean');
         % mean growth rate of non-petite ref colonies
     ref_petite_prop = parameter_dict('ref_petite_prop');
         % proportion of petites in ref strain
@@ -65,11 +65,11 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     parameter_list_mixef = global_mle_parameter_names;
 
     ranef_names_from_param_list = strcat(random_effect_names,'_sigma');
-    params_to_replace = [{'petite_GR'}, ranef_names_from_param_list];
+    params_to_replace = [{'petite_mean'}, ranef_names_from_param_list];
     replacement_params = [{'petite'}, random_effect_names];
     [~, replacement_idx] = ismember(params_to_replace, parameter_list_mixef);
     parameter_list_mixef(replacement_idx(replacement_idx>0)) = replacement_params;
-    input_value_dict_mixef('parameter_list') = parameter_list_mixef;
+    input_value_dict_mixef('mle_parameter_names') = parameter_list_mixef;
 
     [LL_petite, unscaled_gradient_vector_petite, grad_parameter_names_petite] = ...
         LL_mixef_calc(param_vals, input_value_dict_mixef, pre_MLE_output_dict);
@@ -113,8 +113,8 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         'Algorithm','interior-point','MaxIter',5000,'MaxFunEvals',12000,...
         'SpecifyObjectiveGradient',true,'CheckGradients',false,'Display','off');
 
-    current_iter_parameter_values = [petite_colony_sigma,nonpetite_colony_sigma,petite_GR,...
-        ref_GR,ref_petite_prop];
+    current_iter_parameter_values = [petite_colony_sigma,nonpetite_colony_sigma,petite_mean,...
+        ref_mean,ref_petite_prop];
         % parameter values fixed over this iteration
 
     % Initialize a matrix for storing test strain mut_effects and petite proportions
@@ -218,8 +218,8 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         % parameters and current ML estimates for strain-specific
         % parameters
     return_all_grads = true;
-    fixed_parameter_values_grad_calc = [petite_colony_sigma,nonpetite_colony_sigma,petite_GR,...
-        ref_GR,ref_petite_prop,test_strain_ML_params(:,1)',...
+    fixed_parameter_values_grad_calc = [petite_colony_sigma,nonpetite_colony_sigma,petite_mean,...
+        ref_mean,ref_petite_prop,test_strain_ML_params(:,1)',...
         test_strain_ML_params(:,2)'];
     scaling_array_grad_calc = ones(size(fixed_parameter_values_grad_calc));
     logspace_array_grad_calc = false(size(fixed_parameter_values_grad_calc));
@@ -242,12 +242,12 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     unscaled_gradient_dict = containers.Map(strain_param_names, strain_param_gradient);
     % d_LL_d_nonpetite_colony_sigma
     unscaled_gradient_dict('nonpetite_colony_sigma') = global_gradient_vector_no_petite_params(2);
-    % d_LL_d_petite_GR
-    unscaled_gradient_dict('petite_GR') = ...
+    % d_LL_d_petite_mean
+    unscaled_gradient_dict('petite_mean') = ...
         petite_param_gradient_dict('petite') + ...
         global_gradient_vector_no_petite_params(3);
-    % d_LL_d_ref_GR
-    unscaled_gradient_dict('ref_GR') = global_gradient_vector_no_petite_params(4);
+    % d_LL_d_ref_mean
+    unscaled_gradient_dict('ref_mean') = global_gradient_vector_no_petite_params(4);
     % d_LL_d_ref_petite_prop
     unscaled_gradient_dict('ref_petite_prop') = global_gradient_vector_no_petite_params(5);
     % d_LL_d_ranef
