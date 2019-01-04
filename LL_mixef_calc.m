@@ -24,8 +24,9 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
     parameter_list = input_value_dict('parameter_list');
     ranef_names = input_value_dict('random_effect_names');
     intercept_parameter = input_value_dict('intercept_parameter');
+    mle_parameter_names = input_value_dict('mle_parameter_names');
 
-    parameter_dict = containers.Map(parameter_list,param_vals);
+    parameter_dict = containers.Map(mle_parameter_names, param_vals);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     num_ranef = length(ranef_names);
     num_responses = length(response_vector);
