@@ -73,12 +73,14 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
 
             if gradient_specification
                 
-                temp_fitted_parameters = {NaN, NaN};
+                temp_fitted_parameters = {};
                 if any(strcmp(current_strain_pp_name, fitted_parameters))
-                    temp_fitted_parameters{1} = 'test_petite_prop';
+                    temp_fitted_parameters = [temp_fitted_parameters, ...
+                        {'test_petite_prop'}];
                 end
                 if any(strcmp(current_strain_me_name, fitted_parameters))
-                    temp_fitted_parameters{2} = 'test_mean';
+                    temp_fitted_parameters = [temp_fitted_parameters, ...
+                        {'test_mean'}];
                 end
                 current_fitted_parameters = [fitted_parameters, ...
                     temp_fitted_parameters];
