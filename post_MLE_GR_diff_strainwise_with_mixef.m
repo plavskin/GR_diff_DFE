@@ -1,6 +1,7 @@
 function output_dict = post_MLE_GR_diff_strainwise_with_mixef(input_value_dict, pre_MLE_output_dict, output_table)
 
     output_file = input_value_dict('output_file');
+    global_output_table = readtable(output_file);
     test_strain_ML_file = pre_MLE_output_dict('test_strain_ML_file');
     test_strain_ML_table = readtable(test_strain_ML_file);
 
