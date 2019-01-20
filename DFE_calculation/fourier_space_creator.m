@@ -1,14 +1,21 @@
 function [f, g] = fourier_space_creator(N, L)
 
-	df=1/L;
-    % discretized increment between frquencies in the discrete
+	% Sets up frequncy space to be used to calculate discrete characteristic functions
+
+	% discretized increment between frquencies in the discrete
         % Fourier transform
-	f=(0:(N-1))*df;
-	    % discrete frequencies for Fourier transform
-	dg=L/N;
-	    % discretized increment between values of the argument for the
-	        % density fucntion
-	g=( (-N/2):(N/2-1) )*dg;
-	    % array of argument values for the density function
+
+	df=1/L;
+	% discretized increment between values of the argument for the
+		% density fucntion
+    dg=L/N;
+	    
+	N_space = (-N/2):(N/2-1);
+
+	% array of argument values for the density function
+	g = N_space * dg;
+
+	% discrete frequencies for Fourier transform
+	f = -2 * pi * df * N_space;
 
 end
