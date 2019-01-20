@@ -9,7 +9,7 @@ function [Fa, final_grad_dict] = fourier_domain_poisson_dist_num(...
     % Fa is the fourier transform of the pdf of the combined
         % mutational effects of all muts in a strain (across all
         % possible mutation numbers)
-    Fa = exp(-lambda*(1-Fz));
+    Fa = exp(-lambda * (1 - Fz));
     % The discrete inverse fourier transform of Fa results in a point
         % mass at 0, since Fa approaches exp(-lambda), not 0, as f
         % approaches infinity
@@ -25,7 +25,7 @@ function [Fa, final_grad_dict] = fourier_domain_poisson_dist_num(...
         gradient_names = keys(initial_grad_dict);
 
         if any(strcmp('lambda',fitted_parameters))
-            d_Fa_d_lambda = Fa.*(Fz-1);
+            d_Fa_d_lambda = Fa .* (Fz - 1);
         else
             d_Fa_d_lambda = NaN;
         end
@@ -40,7 +40,7 @@ function [Fa, final_grad_dict] = fourier_domain_poisson_dist_num(...
                 % final_grad_dict
             if any(strcmp(current_grad_name, fitted_parameters))
                 if strcmp(current_grad_name, 'x')
-                    final_grad_dict('x') = 2*pi*1i*Fa.*f;
+                    final_grad_dict('x') = -1i * Fa .* f;
                 else
                     d_Fz_d_current_grad = ...
                         initial_grad_dict(current_grad_name);

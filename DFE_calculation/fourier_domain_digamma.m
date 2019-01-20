@@ -11,7 +11,7 @@ function [Fz, gradient_dict]=fourier_domain_digamma(...
     % In order to speed up runtime for gradients, break up the above
         % equation for Fz into reusable components
 
-    C = j * f;
+    C = 1i * f;
     A = 1 - C .* mu/shape;
     B = 1 + C .* mu/shape;
     A_shape = A.^(-shape);
@@ -30,7 +30,7 @@ function [Fz, gradient_dict]=fourier_domain_digamma(...
         d_Fz_d_x = NaN;
 
         if any(strcmp('x',fitted_parameters))
-            d_Fz_d_x = - Fz .* f;
+            d_Fz_d_x = -1i * Fz .* f;
         end
 
         if any(strcmp('prop_pos',fitted_parameters))
