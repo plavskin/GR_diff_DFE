@@ -36,7 +36,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     N = pre_MLE_output_dict('N');
     me_pdf_frequency_vals = pre_MLE_output_dict('me_pdf_frequency_vals');
     me_pdf_xvals = pre_MLE_output_dict('me_pdf_xvals');
-    Fn = pre_MLE_output_dict('Fn');
+    F_kernel = pre_MLE_output_dict('F_kernel');
     test_strain_occurances = pre_MLE_output_dict('test_strain_occurances');
     
     parameter_dict = containers.Map(mle_parameter_names, param_vals);
@@ -116,14 +116,14 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
             fitted_parameters_me, gradient_specification);
     end
 
-    % Calculate Fs, which is Fa smoothed with gaussian kernel Fn
-    Fs = Fa .* Fn;
+    % Calculate Fs, which is Fa smoothed with F_kernel
+    Fs = Fa .* F_kernel;
     % Calculate discrete fourier transform of Fs to get a smoothed
         % version of the pdf of mutational effects per strain
     me_pdf_smooth = fourier_inverter(Fs, N, L);
     % Need to remove stray imaginary and negative values from
         % me_pdf_smooth
-    real_me_pdf_smooth = abs(me_pdf_smooth);
+    real_me_pdf_smooth = real(me_pdf_smooth);
     
 %   figure; plot(me_pdf_xvals, fourier_inverter(Fa, N, L)); hold on; plot(me_pdf_xvals, me_pdf_smooth, '-r'); hold off;
 
@@ -142,7 +142,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         end
         % Calculate gradient of log likelihood of mutational effect
             % distribution relative to mutational effect
-        d_Fs_d_x = 1i * 2 * pi * me_pdf_frequency_vals .* Fs;
+        d_Fs_d_x = - 1i * me_pdf_frequency_vals .* Fs;
         d_me_pdf_smooth_d_me = fourier_inverter(d_Fs_d_x, N, L);
         d_me_LL_smooth_d_me = d_me_pdf_smooth_d_me ./ me_pdf_smooth;
         % Need to remove stray imaginary values from d_me_LL_smooth_d_me
@@ -159,7 +159,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
                 Fa_gradient_dict(current_fitted_param);
             % Adjust gradients to account for smoothing
             d_Fs_d_current_fitted_param = ...
-                d_Fa_d_current_fitted_param .* Fn;
+                d_Fa_d_current_fitted_param .* F_kernel;
             if need_to_remove_zero_vals
                 % remove values where me_pdf_smooth is 0
                 d_Fs_d_current_fitted_param = ...
@@ -167,11 +167,14 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
             end
             d_me_pdf_smooth_d_current_fitted_param = ...
                 fourier_inverter(d_Fs_d_current_fitted_param, N, L);
+            %d_LL_d_current_fitted_param = ...
+            %    real(d_me_pdf_smooth_d_current_fitted_param ./ ...
+            %        me_pdf_smooth);
             d_LL_d_current_fitted_param = ...
-                real(d_me_pdf_smooth_d_current_fitted_param ./ ...
-                    me_pdf_smooth);
-%           figure; plot(me_pdf_xvals, d_LL_d_current_fitted_param)
-            me_dist_param_grad_vector_dict(current_fitted_param) = ...
+                real(d_me_pdf_smooth_d_current_fitted_param) ./ ...
+                    real_me_pdf_smooth;
+%           figure; plot(me_pdf_xvals, d_LL_d_current_fitted_param, movmean(me_pdf_xvals,2), movmean(d_LL_d_current_fitted_param,2)); title(current_fitted_param);
+           me_dist_param_grad_vector_dict(current_fitted_param) = ...
                 d_LL_d_current_fitted_param;
         end
         corrected_me_dist_param_grad_vector_dict_keys = ...
