@@ -58,7 +58,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     mu_SNM = parameter_dict('mu_SNM');
     shape_SNM = parameter_dict('shape_SNM');
     prop_pos_SNM = parameter_dict('prop_pos_SNM');
-    lambda_SNM = parameter_dict('shape_SNM');
+    lambda_SNM = parameter_dict('lambda_SNM');
     
     test_strain_number = length(strain_list);
         % # of strains besides reference strain whose likelihood being fitted
@@ -213,7 +213,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     % 2016 and beyond version:
     fmincon_opts = optimoptions('fmincon','TolX',strain_tolx_val,'TolFun',strain_tolfun_val,...
         'Algorithm','interior-point','MaxIter',5000,'MaxFunEvals',12000,...
-        'SpecifyObjectiveGradient',true,'CheckGradients',true,'Display','off');
+        'SpecifyObjectiveGradient',true,'CheckGradients',false,'Display','off');
 
     current_iter_parameter_values = [petite_colony_sigma,nonpetite_colony_sigma,petite_mean,...
         ref_mean,ref_petite_prop];
