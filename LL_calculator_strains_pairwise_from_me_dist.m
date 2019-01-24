@@ -12,6 +12,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     gradient_specification = input_value_dict('gradient_specification');
     mle_parameter_names = input_value_dict('mle_parameter_names');
+    max_neg_LL_val = input_value_dict('max_neg_LL_val');
     
     strain_list = pre_MLE_output_dict('strain_list');
     fitted_parameters = pre_MLE_output_dict('fitted_parameters');
@@ -77,12 +78,18 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
 
             strain_GR_diff_list = GR_diff_list(current_indices);
 
-            test_mut_effect_LL = current_sample_size * ...
-                log(interp1(me_pdf_xvals, me_pdf, test_mut_effect));
+            test_mut_effect_likelihood = ...
+                interp1(me_pdf_xvals, me_pdf, test_mut_effect);
+            if test_mut_effect_likelihood > 0
+                test_mut_effect_LL = ...
+                    log(test_mut_effect_likelihood);
+            else
+                test_mut_effect_LL = - max_neg_LL_val;
+            end
 
             if gradient_specification
                 
-                d_LL_d_test_mut_effect_dist = current_sample_size * ...
+                d_LL_d_test_mut_effect_dist = ...
                     interp1(me_pdf_xvals, d_me_LL_d_me, test_mut_effect);
 
                 temp_fitted_parameters = {};
