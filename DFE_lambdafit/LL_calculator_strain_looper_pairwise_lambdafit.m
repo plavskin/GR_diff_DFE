@@ -37,6 +37,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     me_pdf_frequency_vals = pre_MLE_output_dict('me_pdf_frequency_vals');
     me_pdf_xvals = pre_MLE_output_dict('me_pdf_xvals');
     F_kernel = pre_MLE_output_dict('F_kernel');
+    fitted_parameters = pre_MLE_output_dict('fitted_parameters');
     
     parameter_dict = containers.Map(mle_parameter_names, param_vals);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -87,9 +88,12 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     clear input_value_dict_mixef
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    fitted_parameters_me_idx = contains(mle_parameter_names, '_SNM');
+    complete_me_parameter_list = ...
+        mle_parameter_names(contains(mle_parameter_names, '_SNM'));
+    fitted_parameters_me_fullname = ...
+        fitted_parameters(contains(fitted_parameters, '_SNM'));
     fitted_parameters_me = ...
-        strrep(mle_parameter_names(fitted_parameters_me_idx), '_SNM', '');
+        strrep(fitted_parameters_me_fullname, '_SNM', '');
 
     % Calculate likelihood of observing mutation effects given current
         % global parameters
@@ -98,91 +102,38 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     % Then calculate Fa, the fourier transform of the pdf of observing
         % a poisson random number of mutational effects from the
         % digamma distribution in Fz
+    [Fz, Fz_gradient_dict] = fourier_domain_digamma(...
+        me_pdf_frequency_vals, mu_SNM, shape_SNM, prop_pos_SNM, ...
+        fitted_parameters_me, gradient_specification);
+    [Fa, Fa_gradient_dict] = fourier_domain_poisson_dist_num(...
+        Fz, me_pdf_frequency_vals, lambda_SNM, Fz_gradient_dict, ...
+        fitted_parameters_me, gradient_specification);
+    
+    % Calculate Fs, which is Fa smoothed with F_kernel
+    % Change name of dictionary keys to original names of parameters
+    corrected_gradient_dict_keys =  strcat(keys(Fa_gradient_dict), '_SNM');
+    Fa_gradient_dict_renamed = containers.Map(corrected_gradient_dict_keys, ...
+        values(Fa_gradient_dict));
+    [Fs, Fs_gradient_dict] = fourier_space_smoother(Fa, F_kernel, ...
+        me_pdf_frequency_vals, Fa_gradient_dict_renamed, ...
+        gradient_specification);
+    % Calculate discrete fourier transform of Fs to get a smoothed
+        % version of the pdf of mutational effects per strain (and, if
+        % applicable, the gradients of the log of the pdf with respect
+        % to each parameter in gradient_param_list)
+    [real_me_pdf_smooth, me_pdf_xvals, me_dist_param_grad_vector_dict] = ...
+        log_likelihood_from_fourier(Fs, me_pdf_xvals, N, L, ...
+            Fs_gradient_dict, gradient_specification);
+
     if gradient_specification
-        [Fz, Fz_gradient_dict] = fourier_domain_digamma(...
-            me_pdf_frequency_vals, mu_SNM, shape_SNM, prop_pos_SNM, ...
-            fitted_parameters_me, gradient_specification);
-        [Fa, Fa_gradient_dict] = fourier_domain_poisson_dist_num(...
-            Fz, me_pdf_frequency_vals, lambda_SNM, Fz_gradient_dict, ...
-            fitted_parameters_me, gradient_specification);
-    else
-        Fz = fourier_domain_digamma(...
-            me_pdf_frequency_vals, mu_SNM, shape_SNM, prop_pos_SNM, ...
-            fitted_parameters_me, gradient_specification);
-        Fz_gradient_dict = NaN;
-        Fa = fourier_domain_poisson_dist_num(...
-            Fz, me_pdf_frequency_vals, lambda_SNM, Fz_gradient_dict, ...
-            fitted_parameters_me, gradient_specification);
+        % Pull out gradient of log likelihood of mutational effect
+            % distribution with respect to to mutational effect
+        real_d_me_LL_smooth_d_me = ...
+            me_dist_param_grad_vector_dict('random_variable');
     end
 
-    % Calculate Fs, which is Fa smoothed with F_kernel
-    Fs = Fa .* F_kernel;
-    % Calculate discrete fourier transform of Fs to get a smoothed
-        % version of the pdf of mutational effects per strain
-    me_pdf_smooth = fourier_inverter(Fs, N, L);
-    % Need to remove stray imaginary and negative values from
-        % me_pdf_smooth
-    real_me_pdf_smooth = real(me_pdf_smooth);
-    
 %   figure; plot(me_pdf_xvals, fourier_inverter(Fa, N, L)); hold on; plot(me_pdf_xvals, me_pdf_smooth, '-r'); hold off;
 
-    if gradient_specification
-        % If calculating gradients of LL, need to divide gradient relative
-            % to parameter by me_pdf_smooth, so remove any values where
-            % me_pdf_smooth is 0
-        non_zero_positions = (me_pdf_smooth ~= 0);
-        need_to_remove_zero_vals = ...
-            length(me_pdf_smooth) > sum(non_zero_positions);
-        if need_to_remove_zero_vals
-            me_pdf_smooth = me_pdf_smooth(non_zero_positions);
-            Fs = Fs(non_zero_positions);
-            me_pdf_frequency_vals = me_pdf_frequency_vals(non_zero_positions);
-            me_pdf_xvals = me_pdf_xvals(non_zero_positions);
-        end
-        % Calculate gradient of log likelihood of mutational effect
-            % distribution relative to mutational effect
-        d_Fs_d_x = - 1i * me_pdf_frequency_vals .* Fs;
-        d_me_pdf_smooth_d_me = fourier_inverter(d_Fs_d_x, N, L);
-        d_me_LL_smooth_d_me = d_me_pdf_smooth_d_me ./ me_pdf_smooth;
-        % Need to remove stray imaginary values from d_me_LL_smooth_d_me
-        real_d_me_LL_smooth_d_me = real(d_me_LL_smooth_d_me);
-        % Create a dictionary of gradients of LL relative to each me
-            % distribution parameter
-%        me_dist_param_grad_vector_dict = containers.Map(keys(Fa_gradient_dict), ...
-%            repmat({NaN},size(keys(Fa_gradient_dict))));
-        me_dist_param_grad_vector_dict = containers.Map();
-        for current_fitted_param_idx = 1:length(fitted_parameters_me)
-            current_fitted_param = ...
-                fitted_parameters_me{current_fitted_param_idx};
-            d_Fa_d_current_fitted_param = ...
-                Fa_gradient_dict(current_fitted_param);
-            % Adjust gradients to account for smoothing
-            d_Fs_d_current_fitted_param = ...
-                d_Fa_d_current_fitted_param .* F_kernel;
-            if need_to_remove_zero_vals
-                % remove values where me_pdf_smooth is 0
-                d_Fs_d_current_fitted_param = ...
-                    d_Fs_d_current_fitted_param(non_zero_positions);
-            end
-            d_me_pdf_smooth_d_current_fitted_param = ...
-                fourier_inverter(d_Fs_d_current_fitted_param, N, L);
-            %d_LL_d_current_fitted_param = ...
-            %    real(d_me_pdf_smooth_d_current_fitted_param ./ ...
-            %        me_pdf_smooth);
-            d_LL_d_current_fitted_param = ...
-                real(d_me_pdf_smooth_d_current_fitted_param) ./ ...
-                    real_me_pdf_smooth;
-%           figure; plot(me_pdf_xvals, d_LL_d_current_fitted_param, movmean(me_pdf_xvals,2), movmean(d_LL_d_current_fitted_param,2)); title(current_fitted_param);
-           me_dist_param_grad_vector_dict(current_fitted_param) = ...
-                d_LL_d_current_fitted_param;
-        end
-        corrected_me_dist_param_grad_vector_dict_keys = ...
-            strcat(keys(me_dist_param_grad_vector_dict), '_SNM');
-        me_dist_param_grad_vector_dict = ...
-            containers.Map(corrected_me_dist_param_grad_vector_dict_keys, ...
-                values(me_dist_param_grad_vector_dict));
-    end
-    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Loop through test strains and identify ML test strain parameters for each
     % The sum of LL across all strains is the combined log likelihood for the
@@ -399,17 +350,21 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     me_dist_param_grad_dict = containers.Map();
     if gradient_specification
         for current_fitted_param_idx = ...
-                1:length(corrected_me_dist_param_grad_vector_dict_keys)
+                1:length(complete_me_parameter_list)
             current_fitted_param = ...
-                corrected_me_dist_param_grad_vector_dict_keys{...
-                    current_fitted_param_idx};
-            d_LL_d_current_fitted_param = ...
-                me_dist_param_grad_vector_dict(current_fitted_param);
-            d_LL_d_current_fitted_param_current_data = ...
-                interp1(me_pdf_xvals, d_LL_d_current_fitted_param, ...
-                    test_strain_ML_params(:,1)');
-            me_dist_param_grad_dict(current_fitted_param) = ...
-                nansum(d_LL_d_current_fitted_param_current_data);
+                complete_me_parameter_list{current_fitted_param_idx};
+            if any(strcmp(fitted_parameters_me_fullname, ...
+                    current_fitted_param))
+                d_LL_d_current_fitted_param = ...
+                    me_dist_param_grad_vector_dict(current_fitted_param);
+                d_LL_d_current_fitted_param_current_data = ...
+                    interp1(me_pdf_xvals, d_LL_d_current_fitted_param, ...
+                        test_strain_ML_params(:,1)');
+                me_dist_param_grad_dict(current_fitted_param) = ...
+                    nansum(d_LL_d_current_fitted_param_current_data);
+            else
+                me_dist_param_grad_dict(current_fitted_param) = NaN;
+            end
         end            
     else
         me_dist_param_grad_dict = {};
