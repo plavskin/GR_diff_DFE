@@ -22,7 +22,7 @@ function [Fn, grad_dict] = fourier_domain_gauss(...
             % values if those gradients are for fitted parameters
         d_Fn_d_mu = NaN;
         d_Fn_d_sigma = NaN;
-        d_Fn_d_x = NaN;
+        d_Fn_d_random_variable = NaN;
 
         % Calculate derivative of Fn with respect to each parameter
         if any(strcmp('sigma',fitted_parameters))
@@ -30,21 +30,22 @@ function [Fn, grad_dict] = fourier_domain_gauss(...
             d_Fn_d_sigma = - Fn .* f .^2 * sigma;
         end
 
-        if ~isempty(intersect({'mu', 'x'}, fitted_parameters))
+        if ~isempty(intersect({'mu', 'random_variable'}, fitted_parameters))
 
             d_Fn_d_mu = 1i * f .* Fn;
 
-            if any(strcmp('x',fitted_parameters))
-                %d_Fn_d_x = Fn.*(2*pi*1i*f);
-                d_Fn_d_x = - d_Fn_d_mu;
+            if any(strcmp('random_variable',fitted_parameters))
+                %d_Fn_d_random_variable = Fn.*(2*pi*1i*f);
+                d_Fn_d_random_variable = - d_Fn_d_mu;
             end
         end
 
         unscaled_gradient_vector = {d_Fn_d_mu, ...
-            d_Fn_d_sigma, d_Fn_d_x};
-        grad_parameter_names = {'mu', 'sigma', 'x'};
+            d_Fn_d_sigma, d_Fn_d_random_variable};
+        grad_parameter_names = {'mu', 'sigma', 'random_variable'};
         grad_dict = containers.Map(grad_parameter_names, unscaled_gradient_vector);
-
+    else
+        grad_dict = containers.Map();
     end
 
    

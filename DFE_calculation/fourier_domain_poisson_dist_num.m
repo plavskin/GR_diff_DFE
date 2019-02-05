@@ -39,8 +39,8 @@ function [Fa, final_grad_dict] = fourier_domain_poisson_dist_num(...
                 % relative to that gradient, and save it in
                 % final_grad_dict
             if any(strcmp(current_grad_name, fitted_parameters))
-                if strcmp(current_grad_name, 'x')
-                    final_grad_dict('x') = -1i * Fa .* f;
+                if strcmp(current_grad_name, 'random_variable')
+                    final_grad_dict('random_variable') = -1i * Fa .* f;
                 else
                     d_Fz_d_current_grad = ...
                         initial_grad_dict(current_grad_name);
@@ -51,7 +51,8 @@ function [Fa, final_grad_dict] = fourier_domain_poisson_dist_num(...
                 final_grad_dict(current_grad_name) = NaN;
             end
         end
-
+    else
+        final_grad_dict = containers.Map();
     end
 
 end

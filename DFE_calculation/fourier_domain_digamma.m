@@ -27,10 +27,10 @@ function [Fz, gradient_dict]=fourier_domain_digamma(...
         d_Fz_d_prop_pos = NaN;
         d_Fz_d_mu = NaN;
         d_Fz_d_shape = NaN;
-        d_Fz_d_x = NaN;
+        d_Fz_d_random_variable = NaN;
 
-        if any(strcmp('x',fitted_parameters))
-            d_Fz_d_x = -1i * Fz .* f;
+        if any(strcmp('random_variable',fitted_parameters))
+            d_Fz_d_random_variable = -1i * Fz .* f;
         end
 
         if any(strcmp('prop_pos',fitted_parameters))
@@ -48,10 +48,11 @@ function [Fz, gradient_dict]=fourier_domain_digamma(...
             end
         end
 
-        unscaled_gradient_vector = {d_Fz_d_mu,  d_Fz_d_shape, d_Fz_d_prop_pos, d_Fz_d_x};
-        grad_parameter_names = {'mu', 'shape', 'prop_pos', 'x'};
+        unscaled_gradient_vector = {d_Fz_d_mu,  d_Fz_d_shape, d_Fz_d_prop_pos, d_Fz_d_random_variable};
+        grad_parameter_names = {'mu', 'shape', 'prop_pos', 'random_variable'};
         gradient_dict = containers.Map(grad_parameter_names, unscaled_gradient_vector);
-
+    else
+        gradient_dict = containers.Map();
     end
 
 
