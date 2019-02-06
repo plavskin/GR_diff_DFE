@@ -16,6 +16,8 @@ function [Fn, grad_dict] = fourier_domain_gauss(...
         % together, respectively)
     Fn = exp(1i * f * mu - variance * f .^ 2 / 2);
 
+    grad_dict = containers.Map('KeyType', 'char', 'ValueType', 'any');
+
     if gradient_specification % check that gradient required
 
         % Pre-set all gradients to NaN, and then only calculate the actual
@@ -23,6 +25,9 @@ function [Fn, grad_dict] = fourier_domain_gauss(...
         d_Fn_d_mu = NaN;
         d_Fn_d_sigma = NaN;
         d_Fn_d_random_variable = NaN;
+
+        grad_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any')
 
         % Calculate derivative of Fn with respect to each parameter
         if any(strcmp('sigma',fitted_parameters))
@@ -40,12 +45,9 @@ function [Fn, grad_dict] = fourier_domain_gauss(...
             end
         end
 
-        unscaled_gradient_vector = {d_Fn_d_mu, ...
-            d_Fn_d_sigma, d_Fn_d_random_variable};
-        grad_parameter_names = {'mu', 'sigma', 'random_variable'};
-        grad_dict = containers.Map(grad_parameter_names, unscaled_gradient_vector);
-    else
-        grad_dict = containers.Map();
+        grad_dict('mu') = d_Fn_d_mu;
+        grad_dict('sigma') = d_Fn_d_sigma;
+        grad_dict('random_variable') = d_Fn_d_random_variable;
     end
 
    

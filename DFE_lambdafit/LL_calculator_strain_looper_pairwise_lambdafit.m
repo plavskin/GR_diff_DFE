@@ -347,7 +347,8 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
 
     % calculate me_dist_param_grad_dict by interpolating strain me vals
         % in the gradients relative to each me distribution parameter
-    me_dist_param_grad_dict = containers.Map();
+    me_dist_param_grad_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any');
     if gradient_specification
         for current_fitted_param_idx = ...
                 1:length(complete_me_parameter_list)

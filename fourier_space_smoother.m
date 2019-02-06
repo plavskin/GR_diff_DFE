@@ -7,7 +7,8 @@ function [Fs, Fs_gradient_dict] = fourier_space_smoother(F_vector, ...
         % Create a dictionary of fourier transforms of the gradients of
             % each parameter in gradient_parameters relative to the
             % smoothed log likelihood
-        empty_F_kernel_grad_dict = containers.Map();
+        empty_F_kernel_grad_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any');
         [Fs, Fs_gradient_dict] = derivative_multiplier(F_vector, F_kernel, ...
             F_vector_gradient_dict, empty_F_kernel_grad_dict);
         
@@ -17,6 +18,7 @@ function [Fs, Fs_gradient_dict] = fourier_space_smoother(F_vector, ...
         Fs_gradient_dict('random_variable') = - 1i * freq_vals .* Fs;
     else
         Fs = F_vector .* F_kernel;
-        Fs_gradient_dict = containers.Map();
+        Fs_gradient_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any');
     end
 end

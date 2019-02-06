@@ -1,4 +1,4 @@
-function [Fa, final_grad_dict] = fourier_domain_poisson_dist_num(...
+function [Fa, grad_dict] = fourier_domain_poisson_dist_num(...
     Fz, f, lambda, initial_grad_dict, fitted_parameters, gradient_specification)
 
     % takes an input distribution in fourier space and its gradients and
@@ -18,11 +18,12 @@ function [Fa, final_grad_dict] = fourier_domain_poisson_dist_num(...
         % transform of Fa with a gaussian kernel with a small variance
         % to smooth it out (do this outside of this function)
 
+    grad_dict = containers.Map('KeyType', 'char', ...
+        'ValueType', 'any');
+    
     if gradient_specification
 
         % Calculate derivative of Fa with respect to each parameter
-
-        gradient_names = keys(initial_grad_dict);
 
         if any(strcmp('lambda',fitted_parameters))
             d_Fa_d_lambda = Fa .* (Fz - 1);
@@ -30,29 +31,27 @@ function [Fa, final_grad_dict] = fourier_domain_poisson_dist_num(...
             d_Fa_d_lambda = NaN;
         end
 
-        final_grad_dict = containers.Map({'lambda'}, {d_Fa_d_lambda});
+        grad_dict('lambda') = d_Fa_d_lambda;
 
+        gradient_names = keys(initial_grad_dict);
         for current_grad_idx=1:length(gradient_names)
             current_grad_name = gradient_names{current_grad_idx};
             % if current_grad_name in fitted_parameters, use gradient of
                 % Fz relative to that gradient to calculate gradient Fa
-                % relative to that gradient, and save it in
-                % final_grad_dict
+                % relative to that gradient, and save it in grad_dict
             if any(strcmp(current_grad_name, fitted_parameters))
                 if strcmp(current_grad_name, 'random_variable')
-                    final_grad_dict('random_variable') = -1i * Fa .* f;
+                    grad_dict('random_variable') = -1i * Fa .* f;
                 else
                     d_Fz_d_current_grad = ...
                         initial_grad_dict(current_grad_name);
-                    final_grad_dict(current_grad_name) = ...
+                    grad_dict(current_grad_name) = ...
                         lambda * Fa .* d_Fz_d_current_grad;
                 end
             else
-                final_grad_dict(current_grad_name) = NaN;
+                grad_dict(current_grad_name) = NaN;
             end
         end
-    else
-        final_grad_dict = containers.Map();
     end
 
 end

@@ -11,7 +11,8 @@ function [multiplied_vector, d_multiplied_v_dict] = derivative_multiplier(v1, v2
     d_v2_keys = keys(d_v2_dict);
     combined_keys = union(d_v1_keys, d_v2_keys);
 
-    d_multiplied_v_dict = containers.Map();
+    d_multiplied_v_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any');
 
     for current_key_idx = 1:length(combined_keys)
         current_key = combined_keys{current_key_idx};

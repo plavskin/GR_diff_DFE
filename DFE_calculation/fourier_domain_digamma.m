@@ -1,4 +1,4 @@
-function [Fz, gradient_dict]=fourier_domain_digamma(...
+function [Fz, grad_dict]=fourier_domain_digamma(...
     f, mu, shape, prop_pos, fitted_parameters, gradient_specification)
 
     %Fz = prop_pos*(1./(1+1i*2*pi*f*theta_pos)).^shape+(1-prop_pos)*(1./(1-1i*2*pi*f*theta_neg)).^shape;
@@ -19,6 +19,9 @@ function [Fz, gradient_dict]=fourier_domain_digamma(...
 
     Fz = prop_pos * A_shape + (1 - prop_pos) * B_shape;
 
+    grad_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any');
+    
     if gradient_specification
 
         % Calculate derivative of Fz with respect to each
@@ -48,11 +51,11 @@ function [Fz, gradient_dict]=fourier_domain_digamma(...
             end
         end
 
-        unscaled_gradient_vector = {d_Fz_d_mu,  d_Fz_d_shape, d_Fz_d_prop_pos, d_Fz_d_random_variable};
-        grad_parameter_names = {'mu', 'shape', 'prop_pos', 'random_variable'};
-        gradient_dict = containers.Map(grad_parameter_names, unscaled_gradient_vector);
-    else
-        gradient_dict = containers.Map();
+        grad_dict('mu') = d_Fz_d_mu;
+        grad_dict('shape') = d_Fz_d_shape;
+        grad_dict('prop_pos') = d_Fz_d_prop_pos;
+        grad_dict('random_variable') = d_Fz_d_random_variable;
+
     end
 
 

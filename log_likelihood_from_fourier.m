@@ -23,7 +23,8 @@ function [real_pdf_vect, pdf_xvals, dist_param_grad_vector_dict] = ...
         % Create a dictionary of gradients of LL relative to each
             % distribution parameter
         gradient_dict_keys = keys(F_vector_gradient_dict);
-        dist_param_grad_vector_dict = containers.Map();
+        dist_param_grad_vector_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any');
         for current_fitted_param_idx = 1:length(gradient_dict_keys)
             current_fitted_param = ...
                 gradient_dict_keys{current_fitted_param_idx};
