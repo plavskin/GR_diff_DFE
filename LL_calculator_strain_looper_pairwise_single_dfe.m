@@ -1,9 +1,7 @@
 function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
-    LL_calculator_strain_looper_pairwise_lambdafit(param_vals,...
+    LL_calculator_strain_looper_pairwise_single_dfe(param_vals,...
     input_value_dict, pre_MLE_output_dict)
     
-    % EP 17-11-07
-
     % Takes in parameters that apply across all test strains
     % Loops through test strains to estimate the optimal strain parameters
         % given the current iteration of general parameter values
@@ -27,6 +25,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     mle_parameter_names = input_value_dict('mle_parameter_names');
     gradient_specification = input_value_dict('gradient_specification');
     L = input_value_dict('L');
+    current_model = input_value_dict('model');
 
     strain_list = pre_MLE_output_dict('strain_list');
     test_strain_list_by_pair = pre_MLE_output_dict('test_strain_list_by_pair');
@@ -37,7 +36,6 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     me_pdf_frequency_vals = pre_MLE_output_dict('me_pdf_frequency_vals');
     me_pdf_xvals = pre_MLE_output_dict('me_pdf_xvals');
     F_kernel = pre_MLE_output_dict('F_kernel');
-    fitted_parameters = pre_MLE_output_dict('fitted_parameters');
     
     parameter_dict = containers.Map(mle_parameter_names, param_vals);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -53,12 +51,6 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         % mean growth rate of non-petite ref colonies
     ref_petite_prop = parameter_dict('ref_petite_prop');
         % proportion of petites in ref strain
-
-    % mutational effect distribution parameters
-    mu_SNM = parameter_dict('mu_SNM');
-    shape_SNM = parameter_dict('shape_SNM');
-    prop_pos_SNM = parameter_dict('prop_pos_SNM');
-    lambda_SNM = parameter_dict('lambda_SNM');
     
     test_strain_number = length(strain_list);
         % # of strains besides reference strain whose likelihood being fitted
@@ -88,34 +80,18 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     clear input_value_dict_mixef
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    complete_me_parameter_list = ...
-        mle_parameter_names(contains(mle_parameter_names, '_SNM'));
-    fitted_parameters_me_fullname = ...
-        fitted_parameters(contains(fitted_parameters, '_SNM'));
-    fitted_parameters_me = ...
-        strrep(fitted_parameters_me_fullname, '_SNM', '');
-
     % Calculate likelihood of observing mutation effects given current
-        % global parameters
-    % Calculate Fz, the fourier transform of the pdf of observing a
-        % single mutational effect from a digamma distribution
-    % Then calculate Fa, the fourier transform of the pdf of observing
-        % a poisson random number of mutational effects from the
-        % digamma distribution in Fz
-    [Fz, Fz_gradient_dict] = fourier_domain_digamma(...
-        me_pdf_frequency_vals, mu_SNM, shape_SNM, prop_pos_SNM, ...
-        fitted_parameters_me, gradient_specification);
-    [Fa, Fa_gradient_dict] = fourier_domain_poisson_dist_num(...
-        Fz, me_pdf_frequency_vals, lambda_SNM, Fz_gradient_dict, ...
-        fitted_parameters_me, gradient_specification);
-    
+        % global parameters (distribution of fitness effects, DFE)
+    % First set up function that will calculate fourier transform of DFE
+    fourier_dfe_fun_name = strcat('fourier_dfe_', current_model);
+    fourier_dfe_function = str2func(fourier_dfe_fun_name);
+    % Calculate fourier transform of DFE
+    [Fa, Fa_gradient_dict, complete_me_parameter_list, ...
+        fitted_parameters_me_fullname] = fourier_dfe_function(...
+            param_vals, input_value_dict, pre_MLE_output_dict);
     % Calculate Fs, which is Fa smoothed with F_kernel
-    % Change name of dictionary keys to original names of parameters
-    corrected_gradient_dict_keys =  strcat(keys(Fa_gradient_dict), '_SNM');
-    Fa_gradient_dict_renamed = containers.Map(corrected_gradient_dict_keys, ...
-        values(Fa_gradient_dict));
     [Fs, Fs_gradient_dict] = fourier_space_smoother(Fa, F_kernel, ...
-        me_pdf_frequency_vals, Fa_gradient_dict_renamed, ...
+        me_pdf_frequency_vals, Fa_gradient_dict, ...
         gradient_specification);
     % Calculate discrete fourier transform of Fs to get a smoothed
         % version of the pdf of mutational effects per strain (and, if
@@ -411,4 +387,3 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     end
 
 end
-    
