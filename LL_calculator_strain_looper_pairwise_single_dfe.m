@@ -108,7 +108,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
             me_dist_param_grad_vector_dict('random_variable');
     end
 
-%   figure; plot(me_pdf_xvals, fourier_inverter(Fa, N, L)); hold on; plot(me_pdf_xvals, me_pdf_smooth, '-r'); hold off;
+%   figure; plot(me_pdf_xvals, fourier_inverter(Fa, N, L)); hold on; plot(me_pdf_xvals, real_me_pdf_smooth, '-r'); hold off;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Loop through test strains and identify ML test strain parameters for each
@@ -343,8 +343,6 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
                 me_dist_param_grad_dict(current_fitted_param) = NaN;
             end
         end            
-    else
-        me_dist_param_grad_dict = {};
     end
     % Combined unscaled_gradient_dict_complete with me_dist_param_grad_dict
     unscaled_gradient_dict_complete = ...
