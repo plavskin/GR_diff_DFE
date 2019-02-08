@@ -27,7 +27,7 @@ function [Fn, grad_dict] = fourier_domain_gauss(...
         d_Fn_d_random_variable = NaN;
 
         grad_dict = containers.Map('KeyType', 'char', ...
-            'ValueType', 'any')
+            'ValueType', 'any');
 
         % Calculate derivative of Fn with respect to each parameter
         if any(strcmp('sigma',fitted_parameters))
