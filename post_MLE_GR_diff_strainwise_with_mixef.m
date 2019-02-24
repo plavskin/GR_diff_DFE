@@ -15,7 +15,7 @@ function output_dict = post_MLE_GR_diff_strainwise_with_mixef(input_value_dict, 
     final_table = ...
         movevars(final_table,'point_num', 'After', ...
             lower_level_param_ML_table_names{end});
-    final_table = movevars(final_table, DFE_parameters, 'After', 'runtime');
+    final_table = movevars(final_table, DFE_parameters, 'After', 'runtime_in_secs');
 
     writetable(final_table,output_file);
 
