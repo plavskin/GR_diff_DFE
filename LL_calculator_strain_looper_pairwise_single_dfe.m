@@ -24,6 +24,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     random_effect_names = input_value_dict('random_effect_names');
     mle_parameter_names = input_value_dict('mle_parameter_names');
     gradient_specification = input_value_dict('gradient_specification');
+    DFE_parameters = input_value_dict('DFE_parameters');
     L = input_value_dict('L');
     current_model = input_value_dict('model');
 
@@ -36,20 +37,21 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     me_pdf_frequency_vals = pre_MLE_output_dict('me_pdf_frequency_vals');
     me_pdf_xvals = pre_MLE_output_dict('me_pdf_xvals');
     F_kernel = pre_MLE_output_dict('F_kernel');
+    ranef_names_from_param_list = ...
+        pre_MLE_output_dict('ranef_names_from_param_list');
     
-    parameter_dict = containers.Map(mle_parameter_names, param_vals);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % identify parameter values
+    % identify general parameter values
     
-    petite_colony_sigma = parameter_dict('petite_colony_sigma');
+    petite_colony_sigma = pre_MLE_output_dict('petite_colony_sigma');
         % s.d. of colony GRs of petite distribution
-    nonpetite_colony_sigma = parameter_dict('nonpetite_colony_sigma');
+    nonpetite_colony_sigma = pre_MLE_output_dict('nonpetite_colony_sigma');
         % s.d. of colony GRs of non-petite reference and test strain distribution
-    petite_mean = parameter_dict('petite_mean');
+    petite_mean = pre_MLE_output_dict('petite_mean');
         % mean growth rate of petite colonies, regardless of genotype
-    ref_mean = parameter_dict('ref_mean');
+    ref_mean = pre_MLE_output_dict('ref_mean');
         % mean growth rate of non-petite ref colonies
-    ref_petite_prop = parameter_dict('ref_petite_prop');
+    ref_petite_prop = pre_MLE_output_dict('ref_petite_prop');
         % proportion of petites in ref strain
     
     test_strain_number = length(strain_list);
@@ -57,28 +59,13 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
 
     tic;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Calculate likelihood of observing petite data given current global parameters
+    % Get previously calculated likelihood of observing petite data given
+        % current global parameters, as well as its gradient
 
-    % replace parameter names in parameter list supplied to LL_mixef_calculator
-    input_value_dict_mixef = ...
-        containers.Map(keys(input_value_dict),values(input_value_dict));
-    parameter_list_mixef = mle_parameter_names;
-
-    ranef_names_from_param_list = strcat(random_effect_names,'_sigma');
-    params_to_replace = [{'petite_mean'}, ranef_names_from_param_list];
-    replacement_params = [{'petite'}, random_effect_names];
-    [~, replacement_idx] = ismember(params_to_replace, parameter_list_mixef);
-    parameter_list_mixef(replacement_idx(replacement_idx>0)) = replacement_params;
-    input_value_dict_mixef('mle_parameter_names') = parameter_list_mixef;
-
-    [LL_petite, unscaled_gradient_vector_petite, grad_parameter_names_petite] = ...
-        LL_mixef_calc(param_vals, input_value_dict_mixef, pre_MLE_output_dict);
+    LL_petite = pre_MLE_output_dict('LL_petite');
     petite_param_gradient_dict = ...
-        containers.Map(grad_parameter_names_petite, ...
-        unscaled_gradient_vector_petite);
+        pre_MLE_output_dict('petite_param_gradient_dict');
     
-    clear input_value_dict_mixef
-
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculate likelihood of observing mutation effects given current
         % global parameters (distribution of fitness effects, DFE)
@@ -370,10 +357,22 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     end
 
     if write_output
-        Strain_Names = {strain_list{:}}';
-        Mutation_Effects = test_strain_ML_params(:,1);
-        Petite_Proportions = test_strain_ML_params(:,2);
-        export_table = table(Strain_Names,Mutation_Effects,Petite_Proportions);
+        strain_names = {strain_list{:}}';
+        me_mle_vals = test_strain_ML_params(:,1);
+        pp_mle_vals = test_strain_ML_params(:,2);
+
+        strain_param_name_list = [strcat(strain_names,'_me')', ...
+            strcat(strain_names,'_pp')'];
+        strain_table_data = num2cell([me_mle_vals; pp_mle_vals]);
+        strain_table = table(strain_table_data{:},'VariableNames', strain_param_name_list);
+
+        % retrieve DFE parameter info
+        [~, DFE_param_positions] = ...
+            ismember(DFE_parameters, mle_parameter_names);
+        DFE_table_data = num2cell(param_vals(DFE_param_positions)');
+        DFE_table = table(DFE_table_data{:}, 'VariableNames', DFE_parameters);
+
+        export_table = [DFE_table strain_table];
 
         Current_Best_LL = combined_LL;
         Best_LL_Runtime = runtime;
