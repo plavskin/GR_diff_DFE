@@ -1,4 +1,4 @@
-function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_within_pair_different_sigmas_simple(test_mean,...
+function [likelihood, unscaled_gradient_dict]=likelihood_calc_within_pair(test_mean,...
 	ref_mean,test_petite_prop,ref_petite_prop,petite_mean,test_sigma,ref_sigma,petite_sigma,...
 	strain_GR_diff_list,gradient_specification,fitted_parameters)
 	% EP 17-08-21
@@ -15,7 +15,14 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 
 %	tic;
 
-	strain_GR_diff_list = reshape(strain_GR_diff_list,[1 length(strain_GR_diff_list)]);
+	datapoint_num = length(strain_GR_diff_list);
+	if datapoint_num > 1
+		strain_GR_diff_list = reshape(strain_GR_diff_list, [datapoint_num 1]);
+	end
+	mean_number = length(test_mean);
+	if mean_number > 1
+		test_mean = reshape(test_mean, [1 mean_number]);
+	end
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -50,23 +57,27 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 	GR_diff_likelihood_list = L_pp + L_pr + L_tp + L_tr;
 %    runtime_short_version = toc;
 
-	LL = sum(log(GR_diff_likelihood_list));
+	likelihood = prod(GR_diff_likelihood_list, 1);
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+	unscaled_gradient_dict = containers.Map('KeyType', 'char', ...
+		'ValueType', 'any');
+
+	grad_parameter_names = ...
+		{'ref_petite_prop', 'test_petite_prop', 'ref_mean', 'petite_mean', ...
+			'test_mean', 'ref_sigma', 'petite_sigma', 'test_sigma'};
+
+	% Pre-set all gradients to NaN, and then only calculate the actual
+		% values if those gradients are for fitted parameters
+	for current_param_idx = 1:length(grad_parameter_names)
+		current_param_name = grad_parameter_names{current_param_idx};
+		unscaled_gradient_dict(current_param_name) = NaN;
+	end
 
 	if gradient_specification
 
-        % Pre-set all gradients to NaN, and then only calculate the actual
-            % values if those gradients are for fitted parameters
-        d_LL_d_ref_petite_prop = NaN;
-        d_LL_d_test_petite_prop = NaN;
-		d_LL_d_ref_mean = NaN;
-        d_LL_d_petite_mean = NaN;
-        d_LL_d_test_mean = NaN;
-		d_LL_d_ref_sigma = NaN;
-        d_LL_d_petite_sigma = NaN;
-        d_LL_d_test_sigma = NaN;
 		% 0/0, which can easily occur when dividing the derivative of
 			%  the LL list by the LL list, returns NaN; when summing
 			% across derivatives of likelihoods, use nansum. In effect,
@@ -97,7 +108,10 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 			d_GR_diff_LL_list_d_test_petite_prop = ...
 				d_GR_diff_likelihood_list_d_test_petite_prop./...
 				GR_diff_likelihood_list;
-			d_LL_d_test_petite_prop = nansum(d_GR_diff_LL_list_d_test_petite_prop);
+			d_LL_d_test_petite_prop = ...
+				nansum(d_GR_diff_LL_list_d_test_petite_prop, 1);
+			unscaled_gradient_dict('test_petite_prop') = ...
+				d_LL_d_test_petite_prop;
 		end
 
 		% d(LL)/d(ref_petite_prop)
@@ -123,7 +137,10 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 			d_GR_diff_LL_list_d_ref_petite_prop = ...
 				d_GR_diff_likelihood_list_d_ref_petite_prop./...
 				GR_diff_likelihood_list;
-			d_LL_d_ref_petite_prop = nansum(d_GR_diff_LL_list_d_ref_petite_prop);
+			d_LL_d_ref_petite_prop = ...
+				nansum(d_GR_diff_LL_list_d_ref_petite_prop, 1);
+			unscaled_gradient_dict('ref_petite_prop') = ...
+				d_LL_d_ref_petite_prop;
 		end
 
 		% gradients relatvie to means
@@ -139,15 +156,17 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
             	d_mean_pr_d_petite_mean = 1;
             	d_mean_tp_d_petite_mean = -1;
 
-            	d_L_pr_d_petite_mean = d_L_pr_d_mean_pr * d_mean_pr_d_petite_mean;
-            	d_L_tp_d_petite_mean = d_L_tp_d_mean_tp * d_mean_tp_d_petite_mean;
+            	d_L_pr_d_petite_mean = d_L_pr_d_mean_pr .* d_mean_pr_d_petite_mean;
+            	d_L_tp_d_petite_mean = d_L_tp_d_mean_tp .* d_mean_tp_d_petite_mean;
 
 				d_GR_diff_likelihood_list_d_petite_mean = ...
 					d_L_pr_d_petite_mean + d_L_tp_d_petite_mean;
 				d_GR_diff_LL_list_d_petite_mean = ...
 					d_GR_diff_likelihood_list_d_petite_mean./...
 					GR_diff_likelihood_list;
-				d_LL_d_petite_mean = nansum(d_GR_diff_LL_list_d_petite_mean);
+				d_LL_d_petite_mean = nansum(d_GR_diff_LL_list_d_petite_mean, 1);
+				unscaled_gradient_dict('petite_mean') = d_LL_d_petite_mean;
+
             end
             
             if ~isempty(intersect({'ref_mean','test_mean'}, ...
@@ -163,15 +182,16 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 				d_mean_tp_d_test_mean = 1;
 				d_mean_tr_d_test_mean = 1;
 
-            	d_L_tp_d_test_mean = d_L_tp_d_mean_tp * d_mean_tp_d_test_mean;
-            	d_L_tr_d_test_mean = d_L_tr_d_mean_tr * d_mean_tr_d_test_mean;
+            	d_L_tp_d_test_mean = d_L_tp_d_mean_tp .* d_mean_tp_d_test_mean;
+            	d_L_tr_d_test_mean = d_L_tr_d_mean_tr .* d_mean_tr_d_test_mean;
 				
 				d_GR_diff_likelihood_list_d_test_mean = ...
 					d_L_tp_d_test_mean + d_L_tr_d_test_mean;
 				d_GR_diff_LL_list_d_test_mean = ...
 					d_GR_diff_likelihood_list_d_test_mean./...
 					GR_diff_likelihood_list;
-				d_LL_d_test_mean = nansum(d_GR_diff_LL_list_d_test_mean);
+				d_LL_d_test_mean = nansum(d_GR_diff_LL_list_d_test_mean, 1);
+				unscaled_gradient_dict('test_mean') = d_LL_d_test_mean;
 
 				% d(LL)/d(ref_mean)
 				if any(strcmp('ref_mean',fitted_parameters))
@@ -186,7 +206,8 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 					d_GR_diff_LL_list_d_ref_mean = ...
 						d_GR_diff_likelihood_list_d_ref_mean./...
 						GR_diff_likelihood_list;
-					d_LL_d_ref_mean = nansum(d_GR_diff_LL_list_d_ref_mean);
+					d_LL_d_ref_mean = nansum(d_GR_diff_LL_list_d_ref_mean, 1);
+					unscaled_gradient_dict('ref_mean') = d_LL_d_ref_mean;
 				end
             end
 
@@ -228,7 +249,8 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 				d_GR_diff_LL_list_d_petite_sigma = ...
 					d_GR_diff_likelihood_list_d_petite_sigma./...
 					GR_diff_likelihood_list;
-				d_LL_d_petite_sigma = nansum(d_GR_diff_LL_list_d_petite_sigma);
+				d_LL_d_petite_sigma = nansum(d_GR_diff_LL_list_d_petite_sigma, 1);
+				unscaled_gradient_dict('petite_sigma') = d_LL_d_petite_sigma;
             end
             
             if ~isempty(intersect({'ref_sigma','test_sigma'}, ...
@@ -259,7 +281,8 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 				d_GR_diff_LL_list_d_test_sigma = ...
 					d_GR_diff_likelihood_list_d_test_sigma./...
 					GR_diff_likelihood_list;
-				d_LL_d_test_sigma = nansum(d_GR_diff_LL_list_d_test_sigma);
+				d_LL_d_test_sigma = nansum(d_GR_diff_LL_list_d_test_sigma, 1);
+				unscaled_gradient_dict('test_sigma') = d_LL_d_test_sigma;
 
 				% d(LL)/d(ref_sigma)
 				if any(strcmp('ref_sigma',fitted_parameters))
@@ -277,20 +300,12 @@ function [LL, unscaled_gradient_vector, grad_parameter_names]=LL_calculator_with
 					d_GR_diff_LL_list_d_ref_sigma = ...
 						d_GR_diff_likelihood_list_d_ref_sigma./...
 						GR_diff_likelihood_list;
-					d_LL_d_ref_sigma = nansum(d_GR_diff_LL_list_d_ref_sigma);
+					d_LL_d_ref_sigma = nansum(d_GR_diff_LL_list_d_ref_sigma, 1);
+					unscaled_gradient_dict('ref_sigma') = d_LL_d_ref_sigma;
 				end
 
             end
         end
-
-		unscaled_gradient_vector = ...
-			[d_LL_d_ref_petite_prop, d_LL_d_test_petite_prop, ...
-			d_LL_d_ref_mean, d_LL_d_petite_mean, d_LL_d_test_mean, ...
-			d_LL_d_ref_sigma, d_LL_d_petite_sigma, d_LL_d_test_sigma];
-    	grad_parameter_names = ...
-    		{'ref_petite_prop', 'test_petite_prop', ...
-			'ref_mean', 'petite_mean', 'test_mean', ...
-			'ref_sigma', 'petite_sigma', 'test_sigma'};
 
 	end
 
