@@ -51,10 +51,15 @@ function [Fa, Fa_gradient_dict, complete_me_parameter_list, ...
         gradient_specification);
     
     % Change name of dictionary keys to original names of parameters
-    corrected_gradient_dict_keys =  ...
-        strcat(keys(Fa_gradient_dict_temp_names), '_SNM');
-    Fa_gradient_dict = containers.Map(corrected_gradient_dict_keys, ...
-        values(Fa_gradient_dict_temp_names));
+    if gradient_specification
+        corrected_gradient_dict_keys =  ...
+            strcat(keys(Fa_gradient_dict_temp_names), '_SNM');
+        Fa_gradient_dict = containers.Map(corrected_gradient_dict_keys, ...
+            values(Fa_gradient_dict_temp_names));
+    else
+        Fa_gradient_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any');
+    end
 
 end
     
