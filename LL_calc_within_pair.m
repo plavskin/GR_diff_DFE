@@ -1,4 +1,4 @@
-function [likelihood, unscaled_gradient_dict]=likelihood_calc_within_pair(test_mean,...
+function [LL, unscaled_gradient_dict]=LL_calc_within_pair(test_mean,...
 	ref_mean,test_petite_prop,ref_petite_prop,petite_mean,test_sigma,ref_sigma,petite_sigma,...
 	strain_GR_diff_list,gradient_specification,fitted_parameters)
 	% EP 17-08-21
@@ -57,7 +57,7 @@ function [likelihood, unscaled_gradient_dict]=likelihood_calc_within_pair(test_m
 	GR_diff_likelihood_list = L_pp + L_pr + L_tp + L_tr;
 %    runtime_short_version = toc;
 
-	likelihood = prod(GR_diff_likelihood_list, 1);
+	LL = sum(log(GR_diff_likelihood_list), 1);
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
