@@ -121,8 +121,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         test_strain_ML_file = pre_MLE_output_dict('test_strain_ML_file');
         test_strain_ML_table = readtable(test_strain_ML_file);
 
-        strain_param_names = [strcat(strain_list,'_me'), ...
-            strcat(strain_list,'_pp')];
+        strain_param_names = strcat(strain_list,'_pp');
         strain_param_MLE_vals = test_strain_ML_table{1, strain_param_names};
 
         % calculate global likelihood gradient given current global
