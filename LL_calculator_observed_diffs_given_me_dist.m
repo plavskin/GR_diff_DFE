@@ -20,6 +20,13 @@ function [LL, gradient_dict] = ...
     general_param_names = {'ref_petite_prop', 'test_petite_prop', ...
         'ref_mean', 'petite_mean', 'test_mean', 'ref_sigma', 'petite_sigma', ...
         'test_sigma'};
+
+    if any(strcmp('ref_mean', fitted_parameters))
+        if ~any(strcmp('test_mean', fitted_parameters))
+            fitted_parameters = [fitted_parameters, 'test_mean'];
+        end
+    end
+
     fitted_general_param_names = intersect(general_param_names, fitted_parameters);
 
     test_strain_mean_grid = ref_mean .* exp(me_pdf_xvals);
@@ -114,7 +121,6 @@ function [LL, gradient_dict] = ...
     me_pdf(me_pdf < 0) = 0;
     log_likelihood_to_integrate_over = log(me_pdf) + LL_observed_diffs;
     log_k = max(log_likelihood_to_integrate_over) - rel_log_diff;
-
 
     likelihood_to_integrate_over_uncorrected = ...
         exp(log_likelihood_to_integrate_over - log_k);
