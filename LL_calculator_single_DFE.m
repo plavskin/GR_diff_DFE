@@ -103,6 +103,10 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     input_value_dict_strain_looper('pre_MLE_output_dict') = ...
         pre_MLE_output_dict_strain_looper;
 
+    % set write_checkpoint to false to avoid overwriting global
+        % checkpoint file
+    input_value_dict_strain_looper('write_checkpoint') = false;
+
     % Run MLE_search_executer to identify ML DFE parameters given current
         % general parameters
     [DFE_MLE_param_vals, combined_LL_from_MLE, ~, ~, ~, ...
