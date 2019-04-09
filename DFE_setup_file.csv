@@ -69,5 +69,6 @@ strainwise_search_type,global,str,whether search in parameter space for paramete
 DFE_specific_variables,,,
 L,2,float,Size of x-axis (ln(mut effect)) used for initial MLE; centered on 0
 gridpower,18,float,log2(number of gridpoints for pdf determination) used for initial MLE
-smoothing_kernel_sigma,0.00001525878906,float,sd of the kernel with which the distribution of mutational effects is convolved; recommended sd is 2^-(gridpower-2) or larger but must be 2^-(gridpower-1) or larger to work
+strain_mean_gridpower,9,float,log2(number of gridpoints for GR diff likelihood estimation) used for initial MLE
+smoothing_kernel_sigma,1.52588E-05,float,sd of the kernel with which the distribution of mutational effects is convolved; recommended sd is 2^-(gridpower-2) or larger but must be 2^-(gridpower-1) or larger to work
 DFE_parameters,shape_SNM;mu_SNM;prop_pos_SNM;lambda_SNM|shape_SNM;mu_SNM;prop_pos_SNM;lambda_SNM,nested_str_list,parameters of the DFE
