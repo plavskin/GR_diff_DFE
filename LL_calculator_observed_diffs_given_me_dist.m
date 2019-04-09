@@ -17,6 +17,18 @@ function [LL, gradient_dict] = ...
     %            ) * dx
     %        )
     
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % set maximum amount of memory that matrices can occupy
+    max_matrix_mem_in_bytes = 0.002*1024^3; % 2 Mb
+    float_memory = 8;
+    single_matrix_mem = max_matrix_mem_in_bytes/length(fitted_parameters);
+    single_matrix_floats = single_matrix_mem/float_memory;
+    col_num = length(me_pdf_xvals);
+    allowed_row_num = max(floor(single_matrix_floats / col_num), 1);
+    data_point_num = length(strain_GR_diff_list);
+    data_section_num = ceil(data_point_num / allowed_row_num);
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
     general_param_names = {'ref_petite_prop', 'test_petite_prop', ...
         'ref_mean', 'petite_mean', 'test_mean', 'ref_sigma', 'petite_sigma', ...
         'test_sigma'};
@@ -56,15 +68,15 @@ function [LL, gradient_dict] = ...
     % initialize LL_observed_diffs_sparse with ones at every position
     LL_observed_diffs_sparse = ones(size(test_strain_mean_grid));
     
-    % Although LL_calculator_within_pair_different_sigmas_simple can
-        % accept a list of strain_GR_diff_list values, this would result
-        % in the creation of a large matrix, so pass strain_GR_diff_list
-        % values one at a time
-    for current_GR_diff_counter = 1:length(strain_GR_diff_list)
-        current_GR_diff = strain_GR_diff_list(current_GR_diff_counter);
+    for current_GR_diff_counter = 1:data_section_num
+        start_idx = 1 + allowed_row_num * (current_GR_diff_counter - 1);
+        end_idx = min(allowed_row_num * current_GR_diff_counter, ...
+            data_point_num);
+        current_indices = start_idx:end_idx;
+        current_GR_diff = strain_GR_diff_list(current_indices);
         
-        [current_LL_observed_diffs_sparse, ...
-            current_LL_observed_diffs_sparse_grad_dict] = ...
+        [current_LL_observed_diffs, ...
+            current_LL_observed_diffs_grad_dict] = ...
                 LL_calc_within_pair_fast(test_strain_mean_grid, ref_mean, ...
                     test_petite_prop, ref_petite_prop, petite_mean, test_sigma, ...
                     ref_sigma, petite_sigma, current_GR_diff, ...
