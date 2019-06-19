@@ -54,10 +54,15 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     % initialize the log likelihood
     combined_LL = 0;
     
-    if gradient_specification
-        gradient_keys = [mle_parameter_names, DFE_parameters];
-        gradient_dict = containers.Map(gradient_keys, ...
-            zeros(size(gradient_keys)));
+    gradient_dict = containers.Map('KeyType', 'char', ...
+            'ValueType', 'any');
+    gradient_keys = [mle_parameter_names, DFE_parameters];
+
+    % Pre-set all gradients to 0, and then only calculate the actual
+        % values if those gradients are for fitted parameters
+    for current_param_idx = 1:length(gradient_keys)
+        current_param_name = gradient_keys{current_param_idx};
+        gradient_dict(current_param_name) = 0;
     end
 
     fitted_parameters = strrep(fitted_parameters, '_colony_sigma','_sigma');
@@ -132,7 +137,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
 %                    current_grad_dict('test_mean') * ...
 %                    ref_mean * exp(test_mut_effect) + ...
 %                    d_LL_d_test_mut_effect_dist;
-                
+
                 gradient_dict('petite_colony_sigma') = ...
                     gradient_dict('petite_colony_sigma') + ...
                     current_grad_dict('petite_sigma');
@@ -184,4 +189,5 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     
     unscaled_gradient_vector = cell2mat(values(gradient_dict));
     grad_parameter_names = keys(gradient_dict);
+
 end
