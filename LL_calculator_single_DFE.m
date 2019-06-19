@@ -103,6 +103,23 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     input_value_dict_strain_looper('pre_MLE_output_dict') = ...
         pre_MLE_output_dict_strain_looper;
 
+    % if MLE values for subparameters identified during a previous run,
+        % start with those values rather than starting parameters
+    test_strain_ML_file = pre_MLE_output_dict('test_strain_ML_file');
+    if exist(test_strain_ML_file, 'file') == 2
+        latest_MLE_table = readtable(test_strain_ML_file);
+
+        parameter_list = input_value_dict_strain_looper('parameter_list');
+        start_value_list_new = input_value_dict_strain_looper('starting_parameter_vals');
+
+        MLE_param_table_keys = latest_MLE_table.Properties.VariableNames;
+        MLE_param_table_key_indices_in_param_list = find(ismember(parameter_list, MLE_param_table_keys));
+
+        start_value_list_new(MLE_param_table_key_indices_in_param_list) = latest_MLE_table{1,:};
+
+        input_value_dict_strain_looper('starting_parameter_vals') = start_value_list_new;
+    end
+
     % set write_checkpoint to false to avoid overwriting global
         % checkpoint file
     input_value_dict_strain_looper('write_checkpoint') = false;
