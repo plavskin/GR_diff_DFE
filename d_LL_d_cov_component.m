@@ -16,8 +16,17 @@ function d_LL_d_sigma = d_LL_d_cov_component(sigma,cov_mat_positions,...
 		diff_vector_over_cov = diff_vector'/total_cov;
 	end
 
+	if all(cov_mat_positions(:)==1)
+		% shortcut to calculating trace(cov_mat_positions/total_cov) by summing across the inverse of total_cov
+		vect_of_ones = ones(size(total_cov,2),1);
+		X = linsolve(total_cov, vect_of_ones);
+		quotient_trace = sum(X(:));
+	else
+		quotient_trace = trace(cov_mat_positions/total_cov);
+	end
+
     d_LL_d_sigma = -sigma*...
-        (trace(cov_mat_positions/total_cov)-...
+        (quotient_trace-...
         diff_vector_over_cov*cov_mat_positions/total_cov*diff_vector);
     
 end

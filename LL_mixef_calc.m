@@ -28,6 +28,7 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
 
     parameter_dict = containers.Map(mle_parameter_names, param_vals);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
     num_ranef = length(ranef_names);
     num_responses = length(response_vector);
 
@@ -95,6 +96,8 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
 
     end
 
+%   disp('Lambda calculated')
+
     clear current_ranef_cov_struct
 %    clear ranef_corr_struct
 
@@ -105,27 +108,46 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
 %    Lambda(:,current_first_column:current_last_column) = ...
 %        spdiags(sigma_vector,0,num_responses,num_responses);
 
-    total_cov = Lambda*Lambda';
+    
 
-    clear Lambda
 
 %    disp('total_cov calculated')
 
-    [order_vector,block_structure] = Block_Finder(total_cov,order_vector,block_start_positions);
-    
+    if (isnan(any(order_vector)) | isnan(any(block_start_positions)))
+        total_cov = Lambda*Lambda';
+        [order_vector,block_structure] = ...
+            Block_Finder(total_cov,order_vector,block_start_positions);
+        block_start_positions = [block_structure(:).start];
+        block_end_positions = [block_structure(:).end];
+        calculate_each_cov = false;
+    else
+        block_end_positions = ...
+            [(block_start_positions(2:end)-1), num_responses];
+        calculate_each_cov = true;
+    end
+
     LL = 0;
-    block_number = size(block_structure,2);
+    block_number = length(block_start_positions);
 
     if calculate_gradient
         unscaled_gradient_vector = zeros([1 length(ranef_names)+length(fixef_names)]);
     end
 
-    for block_counter=1:block_number
-%        disp(block_counter)
-        current_cov = block_structure(block_counter).block;
-        current_start = block_structure(block_counter).start;
-        current_end = block_structure(block_counter).end;
+    Lambda_ordered = Lambda(order_vector, :);
+    
+    grad_parameter_names = [ranef_names, fixef_names];
 
+    for block_counter=1:block_number
+        %disp(block_counter)
+        current_start = block_start_positions(block_counter);
+        current_end = block_end_positions(block_counter);
+
+        if calculate_each_cov
+            current_Lambda = Lambda_ordered(current_start:current_end, :);
+            current_cov = full(current_Lambda * current_Lambda');
+        else
+            current_cov = block_structure(block_counter).block;
+        end
         current_indices = order_vector(current_start:current_end);
         current_response_vector = response_vector(current_indices);
         current_mean_vector = mean_vector(current_indices);
@@ -137,7 +159,7 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
         
 %        disp('calculating log_det')
 
-        current_log_det_cov = full(log_determinant_calculator(current_cov));
+        current_log_det_cov = log_determinant_calculator(current_cov);
 
 %        disp('log_det calculated')
 
@@ -147,7 +169,6 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
 
 %        disp('LL calculated')
         LL = LL + current_LL;
-
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         if calculate_gradient
 
@@ -163,17 +184,16 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
 
             % calculate gradient relative to ranef (excluding residuals)
             d_LL_d_ranef = NaN(1,num_ranef);
-
+            
             for current_ranef_index = 1:num_ranef
 
 %                current_first_column = ranef_column_start_positions(current_ranef_index);
 %                current_last_column = ranef_column_end_positions(current_ranef_index);
 
-                current_ranef_name = ranef_names(current_ranef_index);
+                current_ranef_name = ranef_names(current_ranef_index)
                 total_ranef_cov_positions = ranef_corr_struct.(current_ranef_name{:});
-                current_ranef_cov_positions = total_ranef_cov_positions(current_indices,:);
+                current_ranef_cov_positions = full(total_ranef_cov_positions(current_indices,:));
                 current_ranef_val = ranef_guess_list(current_ranef_index);
-
                 current_cov_mat_positions = current_ranef_cov_positions*current_ranef_cov_positions';
 
             %    d_LL_d_current_ranef = -current_ranef_val*...
@@ -183,7 +203,6 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
                 d_LL_d_current_ranef = d_LL_d_cov_component(current_ranef_val,...
                     current_cov_mat_positions,current_cov,current_diff_vector,...
                     current_diff_vector_over_cov);
-
                 d_LL_d_ranef(current_ranef_index) = d_LL_d_current_ranef;
 
             end
@@ -216,11 +235,7 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
 %            gradient_vector = gradient_vector-[d_LL_d_ranef,d_LL_d_fixef,d_LL_d_sigma];
             unscaled_gradient_vector = unscaled_gradient_vector+[d_LL_d_ranef,d_LL_d_fixef];
         else
-            unscaled_gradient_vector = [];
+            unscaled_gradient_vector = NaN(size(grad_parameter_names));
         end
-
-
     end
-    grad_parameter_names = [ranef_names, fixef_names];
-
 end
