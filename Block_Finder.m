@@ -9,12 +9,12 @@ function [order_vector,block_structure] = Block_Finder(M,order_vector,block_star
 		% and end at M(block_start_positions(i+1),block_start_positions(i+1))
 	% inspired by L-RCM: Matrix block detection algorithm by Miguel Rebollo
 
-	if isnan(order_vector)
+	if isnan(any(order_vector))
 		order_vector = symamd(M);
 	end
 %	disp('order_vector created')
 	M_ordered = M(order_vector,order_vector);
-	if isnan(block_start_positions)
+	if isnan(any(block_start_positions))
 %		disp('M_ordered created')
 		M_ordered_no_diag = M_ordered-diag(diag(M_ordered));
 %		disp('M_ordered_no_diag created')
