@@ -4,7 +4,11 @@ function output_dict = pre_MLE_me_dist(input_value_dict)
     gridpower = input_value_dict('gridpower');
     smoothing_kernel_sigma = input_value_dict('smoothing_kernel_sigma');
     L = input_value_dict('L');
-    strain_mean_gridpower = input_value_dict('strain_mean_gridpower');
+    if (isKey(input_value_dict, 'strain_mean_gridpower'))
+        strain_mean_gridpower = input_value_dict('strain_mean_gridpower');
+    else
+        strain_mean_gridpower = smoothing_kernel_sigma;
+    end
 
     N = 2^gridpower;
     [me_pdf_frequency_vals, me_pdf_xvals] = fourier_space_creator(N, L);

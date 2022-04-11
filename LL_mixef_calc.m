@@ -190,7 +190,7 @@ function [LL, unscaled_gradient_vector, grad_parameter_names] = LL_mixef_calc(pa
 %                current_first_column = ranef_column_start_positions(current_ranef_index);
 %                current_last_column = ranef_column_end_positions(current_ranef_index);
 
-                current_ranef_name = ranef_names(current_ranef_index)
+                current_ranef_name = ranef_names(current_ranef_index);
                 total_ranef_cov_positions = ranef_corr_struct.(current_ranef_name{:});
                 current_ranef_cov_positions = full(total_ranef_cov_positions(current_indices,:));
                 current_ranef_val = ranef_guess_list(current_ranef_index);

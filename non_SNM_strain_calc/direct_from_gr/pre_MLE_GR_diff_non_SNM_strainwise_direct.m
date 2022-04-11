@@ -1,4 +1,4 @@
-function output_dict = pre_MLE_GR_diff_non_SNM_strainwise(input_value_dict)
+function output_dict = pre_MLE_GR_diff_non_SNM_strainwise_direct(input_value_dict)
     % requires mixef_data_reader, effect_position_finder
 
     % Read phenotype data
@@ -29,7 +29,9 @@ function output_dict = pre_MLE_GR_diff_non_SNM_strainwise(input_value_dict)
     [ref_strain_ID_mat, unique_ref_strains] = ...
         effect_position_finder(ref_strain_list_by_pair);
 
-    strain_list_from_data = [unique_test_strains, unique_ref_strains];
+    strain_list_from_data = ...
+        [reshape(unique_test_strains, [1 length(unique_test_strains)]), ...
+        reshape(unique_ref_strains, [1 length(unique_ref_strains)])];
 
     % Check whether parameters in parameter_list with _pp endings and _gr endings match
     gr_parameter_indices = ~cellfun(@isempty,regexp(parameter_list,'_gr$'));

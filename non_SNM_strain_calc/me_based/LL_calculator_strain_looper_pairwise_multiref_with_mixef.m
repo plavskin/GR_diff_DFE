@@ -40,6 +40,8 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         % s.d. of colony GRs of non-petite reference and test strain distribution
     petite_mean = parameter_dict('petite_mean');
         % mean growth rate of petite colonies, regardless of genotype
+    ref_mean = parameter_dict('ref_mean');
+        % mean growth rate of non-petite ref colonies
 
     tic;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -74,7 +76,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         'SpecifyObjectiveGradient',gradient_specification,'CheckGradients',false,'Display','off');
 
     current_iter_parameter_values = ...
-        [petite_colony_sigma, nonpetite_colony_sigma, petite_mean];
+        [petite_colony_sigma, nonpetite_colony_sigma, petite_mean, ref_mean];
         % parameter values fixed over this iteration
 
     % global parameters have already been descaled and de-logspaced, so
@@ -83,7 +85,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     global_scaling_for_strain_mle = ones(size(current_iter_parameter_values));
     global_logspace_for_strain_mle = false(size(current_iter_parameter_values));
     global_mle_parameter_names_for_strain_mle = {'petite_colony_sigma', ...
-        'nonpetite_colony_sigma', 'petite_mean'};
+        'nonpetite_colony_sigma', 'petite_mean', 'ref_mean'};
 
     % initialize the log likelihood, which is maximized in
         % iterations of this function
@@ -92,10 +94,10 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         
 %    combined_LL = 0 + LL_petite;
             
-    strain_param_list = [strcat(strain_list,'_gr'), ...
+    strain_param_list = [strcat(strain_list,'_me'), ...
         strcat(strain_list,'_pp')];
             
-    [~, ~, strain_param_logspace_bool, strain_param_scaling_values, ...
+    [~, mle_parameter_names_strain_only, strain_param_logspace_bool, strain_param_scaling_values, ...
         strain_fixed_values, strain_fixed_indices, lb_values, ub_values, ...
         start_values] = parameter_array_subsetter(strain_param_list, ...
             input_value_dict);
@@ -112,7 +114,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         strain_fixed_values];
 
     mle_parameter_names_strain_mle = ...
-        [global_mle_parameter_names_for_strain_mle, strain_param_list];
+        [global_mle_parameter_names_for_strain_mle, mle_parameter_names_strain_only];
 
     pre_MLE_output_dict_strain = ...
         containers.Map(keys(pre_MLE_output_dict), values(pre_MLE_output_dict));
@@ -126,7 +128,9 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
 
     % Estimate likelihood for all pairs of current strain
     % If there are no parameters to fit, just run the likelihood estimation
+
     if sum(~fixed_parameter_indices) > 0
+
         min_problem = createOptimProblem('fmincon','objective',...
             @(strainwise_parameter_vals_partial) ...
             LL_calculator(strainwise_parameter_vals_partial,...
@@ -143,7 +147,9 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         gs.TolFun = tolfun_val;
         gs.TolX = tolx_val;
         gs.StartPointsToRun='bounds';
-        gs.Display='final';
+        gs.Display='off';
+        gs.NumStageOnePoints = 30;
+        gs.NumTrialPoints = 100;
 
         if strcmp(strainwise_search_type,'global')
             [out_param_vals]=...
@@ -172,7 +178,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
         % parameters and current ML estimates for strain-specific
         % parameters
     parameter_values_final = [petite_colony_sigma, ...
-        nonpetite_colony_sigma, petite_mean, unscaled_strain_param_vals];
+        nonpetite_colony_sigma, petite_mean, ref_mean, unscaled_strain_param_vals];
 
     pre_MLE_output_dict_strain('fitted_parameters') = mle_parameter_names_strain_mle;
 
@@ -230,7 +236,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     if write_output
         export_table_data = num2cell(unscaled_strain_param_vals);
         export_table = ...
-            table(export_table_data{:},'VariableNames', strain_param_list);
+            table(export_table_data{:},'VariableNames', mle_parameter_names_strain_only);
 
         Current_Best_LL = combined_LL;
         Best_LL_Runtime = runtime;

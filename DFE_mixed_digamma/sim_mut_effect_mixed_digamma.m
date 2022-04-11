@@ -44,11 +44,11 @@ function new_param_values = sim_mut_effect_mixed_digamma(key_list, value_list)
     prop_neut_SNM = parameter_dict('prop_neut_SNM');
     theta_SNM = mu_SNM/shape_SNM;
 
-    mu_unseq_muts = parameter_dict('mu_unseq_muts');
-    shape_unseq_muts = parameter_dict('shape_unseq_muts');
-    prop_pos_unseq_muts = parameter_dict('prop_pos_unseq_muts');
-    lambda_unseq_muts = parameter_dict('lambda_unseq_muts');
-    theta_unseq_muts = mu_unseq_muts/shape_unseq_muts;
+    mu_unseq_single_muts = parameter_dict('mu_unseq_single_muts');
+    shape_unseq_single_muts = parameter_dict('shape_unseq_single_muts');
+    prop_pos_unseq_single_muts = parameter_dict('prop_pos_unseq_single_muts');
+    lambda_unseq_single_muts = parameter_dict('lambda_unseq_single_muts');
+    theta_unseq_single_muts = mu_unseq_single_muts/shape_unseq_single_muts;
 
     test_strain_number = length(strain_list);
         % # of strains besides reference strain whose likelihood being fitted
@@ -60,8 +60,8 @@ function new_param_values = sim_mut_effect_mixed_digamma(key_list, value_list)
         % based on the known mutation number and lambda in the 'unsequenced'
         % portion of the genome
     total_mut_numbers_SNM = poissrnd(lambda_SNM, [test_strain_number, 1]);
-    total_mut_numbers_unseq_muts = ...
-        poissrnd(lambda_unseq_muts, [test_strain_number, 1]);
+    total_mut_numbers_unseq_single_muts = ...
+        poissrnd(lambda_unseq_single_muts, [test_strain_number, 1]);
 
     % Make a vector of random non-neutral mutation numbers, dependent on p0, in each strain
     non_neutral_muts_SNM = binornd(total_mut_numbers_SNM,(1-prop_neut_SNM));
@@ -70,10 +70,10 @@ function new_param_values = sim_mut_effect_mixed_digamma(key_list, value_list)
     positive_muts_SNM = binornd(non_neutral_muts_SNM, prop_pos_SNM);
     negative_muts_SNM = non_neutral_muts_SNM - positive_muts_SNM;
 
-    positive_muts_unseq_muts = ...
-        binornd(total_mut_numbers_unseq_muts, prop_pos_unseq_muts);
-    negative_muts_unseq_muts = ...
-        total_mut_numbers_unseq_muts - positive_muts_unseq_muts;
+    positive_muts_unseq_single_muts = ...
+        binornd(total_mut_numbers_unseq_single_muts, prop_pos_unseq_single_muts);
+    negative_muts_unseq_single_muts = ...
+        total_mut_numbers_unseq_single_muts - positive_muts_unseq_single_muts;
 
     % Make a vector of positive and negative mutational effects
     % Use the fact that the joint distribution of multiple
@@ -83,24 +83,24 @@ function new_param_values = sim_mut_effect_mixed_digamma(key_list, value_list)
     neg_gamma_shapes_SNM = shape_SNM * negative_muts_SNM;
     pos_gamma_shapes_SNM = shape_SNM * positive_muts_SNM;
 
-    neg_gamma_shapes_unseq_muts = ...
-        shape_unseq_muts * negative_muts_unseq_muts;
-    pos_gamma_shapes_unseq_muts = ...
-        shape_unseq_muts * positive_muts_unseq_muts;
+    neg_gamma_shapes_unseq_single_muts = ...
+        shape_unseq_single_muts * negative_muts_unseq_single_muts;
+    pos_gamma_shapes_unseq_single_muts = ...
+        shape_unseq_single_muts * positive_muts_unseq_single_muts;
 
     neg_mut_effects_SNM = -gamrnd(neg_gamma_shapes_SNM, theta_SNM);
     pos_mut_effects_SNM = gamrnd(pos_gamma_shapes_SNM, theta_SNM);
         % for cases with 0 mutations, shape_SNM will be 0, which should
             % produce 0 mut effects
-    neg_mut_effects_unseq_muts = ...
-        -gamrnd(neg_gamma_shapes_unseq_muts, theta_unseq_muts);
-    pos_mut_effects_unseq_muts = ...
-        gamrnd(pos_gamma_shapes_unseq_muts, theta_unseq_muts);
+    neg_mut_effects_unseq_single_muts = ...
+        -gamrnd(neg_gamma_shapes_unseq_single_muts, theta_unseq_single_muts);
+    pos_mut_effects_unseq_single_muts = ...
+        gamrnd(pos_gamma_shapes_unseq_single_muts, theta_unseq_single_muts);
 
     % Combined positive and negative effects in each strain
     total_SNM_mut_effects = neg_mut_effects_SNM + pos_mut_effects_SNM;
-    total_unseq_muts_mut_effects = ...
-        neg_mut_effects_unseq_muts + pos_mut_effects_unseq_muts;
+    total_unseq_single_muts_mut_effects = ...
+        neg_mut_effects_unseq_single_muts + pos_mut_effects_unseq_single_muts;
 
     % combined mutational effects for each strain are the total SNM
         % effects for that strain plus the total unsequenced mutation

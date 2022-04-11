@@ -1,4 +1,4 @@
-function sim_pairwise_GR_diff_multiref(key_list, value_list)
+function sim_pairwise_GR_diff_multiref_direct(key_list, value_list)
 
     % takes input from a data file, and simulates the same number of datapoints
 
@@ -16,7 +16,7 @@ function sim_pairwise_GR_diff_multiref(key_list, value_list)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     input_value_dict_for_pre_MLE_function = input_value_dict;
     input_value_dict_for_pre_MLE_function('phenotype_file') = original_phenotype_file;
-    pre_MLE_output_dict = pre_MLE_GR_diff_non_SNM_strainwise(input_value_dict_for_pre_MLE_function);
+    pre_MLE_output_dict = pre_MLE_GR_diff_non_SNM_strainwise_direct(input_value_dict_for_pre_MLE_function);
 
     strain_list = pre_MLE_output_dict('strain_list');
     unique_test_strains = pre_MLE_output_dict('unique_test_strains');

@@ -18,6 +18,8 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     strain_me_estimate_list = ...
         pre_MLE_output_dict('strain_me_estimate_list');
     strain_me_ste_list = pre_MLE_output_dict('strain_me_ste_list');
+    lambda_mult_list = pre_MLE_output_dict('lambda_mult_list');
+    lambda_mult_strain_idx_list = pre_MLE_output_dict('lambda_mult_strain_idx_list');
     N = pre_MLE_output_dict('N');
     me_pdf_frequency_vals = pre_MLE_output_dict('me_pdf_frequency_vals');
     me_pdf_xvals = pre_MLE_output_dict('me_pdf_xvals');
@@ -33,9 +35,23 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     fourier_dfe_fun_name = strcat('fourier_dfe_', current_model);
     fourier_dfe_function = str2func(fourier_dfe_fun_name);
     % Calculate fourier transform of DFE
-    [Fa, Fa_gradient_dict, complete_me_parameter_list, ...
-        fitted_parameters_me_fullname] = fourier_dfe_function(...
-            param_vals, input_value_dict, pre_MLE_output_dict);
+    % lambdas may be different, need to account for this!
+    fourier_output_dict = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
+    for lambda_mult_idx = 1:length(lambda_mult_list)
+        curr_lambda_mult = lambda_mult_list(lambda_mult_idx);
+        curr_param_vals = param_vals;
+        lambda_idx = find(strcmp(input_value_dict('mle_parameter_names'),'lambda_SNM'));
+        curr_param_vals(lambda_idx) = param_vals(lambda_idx)*curr_lambda_mult;
+        [curr_Fa, curr_Fa_gradient_dict, curr_complete_me_parameter_list, ...
+            curr_fitted_parameters_me_fullname] = ...
+            fourier_dfe_function(curr_param_vals, input_value_dict, pre_MLE_output_dict);
+        fourier_output_dict(lambda_mult_idx) = ...
+            {curr_Fa, curr_Fa_gradient_dict, curr_complete_me_parameter_list, ...
+            curr_fitted_parameters_me_fullname};
+    end
+%    [Fa, Fa_gradient_dict, complete_me_parameter_list, ...
+%        fitted_parameters_me_fullname] = fourier_dfe_function(...
+%            param_vals, input_value_dict, pre_MLE_output_dict);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  
@@ -48,6 +64,11 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
 
         current_mut_effect = strain_me_estimate_list(strain_idx);
         current_me_ste = strain_me_ste_list(strain_idx);
+        current_lambda_idx = lambda_mult_strain_idx_list(strain_idx);
+
+        curr_fourier_output_vals = fourier_output_dict(current_lambda_idx);
+        [Fa, Fa_gradient_dict, complete_me_parameter_list, ...
+            fitted_parameters_me_fullname] = curr_fourier_output_vals{:};
         
         current_F_kernel = fourier_domain_gauss(me_pdf_frequency_vals, ...
             0, current_me_ste, {}, false);
