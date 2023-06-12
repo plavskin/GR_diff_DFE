@@ -67,7 +67,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
             current_strain_me_name = strcat(current_strain,'_me');
             test_petite_prop = parameter_dict(current_strain_pp_name);
             test_mut_effect = parameter_dict(current_strain_me_name);
-            test_mean = ref_mean * exp(test_mut_effect);
+            test_mean = ref_mean * (1 + test_mut_effect);
 
             strain_GR_diff_list = GR_diff_list(current_indices);
 
@@ -104,14 +104,13 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
                     % gradient
                     % d(LL)/d(ref_mean) = d(LL)/d(test_mean) *
                         % d(test_mean)/d(ref_mean);
-                    % d(test_mean)/d(ref_mean) = exp(test_mut_effect)
+                    % d(test_mean)/d(ref_mean) = 1 + test_mut_effect
                 current_contrib_to_ref_mean_grad = ...
-                    current_grad_dict('test_mean') * exp(test_mut_effect);
+                    current_grad_dict('test_mean') * (1 + test_mut_effect);
                 % convert derivative of test strain mean to derivative of
                     % mutational effect
                 current_grad_dict('test_me') = ...
-                    current_grad_dict('test_mean') * ...
-                    ref_mean * exp(test_mut_effect);
+                    current_grad_dict('test_mean') * ref_mean;
                 
                 gradient_dict('petite_colony_sigma') = ...
                     gradient_dict('petite_colony_sigma') + ...

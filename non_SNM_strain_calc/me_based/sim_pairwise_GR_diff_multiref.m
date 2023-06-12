@@ -69,7 +69,7 @@ function sim_pairwise_GR_diff_multiref(key_list, value_list)
         test_me_name = strcat(current_test_strain, '_me');
         test_petite_prop = parameter_dict(test_pp_name);
         test_mut_effect = parameter_dict(test_me_name);
-        test_mean = ref_mean * exp(test_mut_effect);
+        test_mean = ref_mean * (1+test_mut_effect);
 
         for ref_strain_idx = 1:ref_strain_number
 
@@ -78,7 +78,7 @@ function sim_pairwise_GR_diff_multiref(key_list, value_list)
             ref_me_name = strcat(current_ref_strain, '_me');
             ref_petite_prop = parameter_dict(ref_pp_name);
             ref_mut_effect = parameter_dict(ref_me_name);
-            current_ref_mean = ref_mean * exp(ref_mut_effect);
+            current_ref_mean = ref_mean * (1+ref_mut_effect);
 
             % pick out growth rate differences corresponding to current
                 % combination of reference and test strain

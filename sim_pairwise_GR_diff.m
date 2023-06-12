@@ -73,7 +73,7 @@ function sim_pairwise_GR_diff(key_list, value_list)
             current_strain_me_name = strcat(current_strain,'_me');
             test_petite_prop = parameter_dict(current_strain_pp_name);
             test_mut_effect = parameter_dict(current_strain_me_name);
-            test_mean = ref_mean * exp(test_mut_effect);
+            test_mean = ref_mean * (1+test_mut_effect);
 
             current_GR_diff_list = ...
                 sim_within_pair_different_sigmas(test_mean,...
