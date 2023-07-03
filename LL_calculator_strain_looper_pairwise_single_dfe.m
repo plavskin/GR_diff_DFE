@@ -8,7 +8,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
     % For each test strain, calculates the log likelihood of observing a list
         % of differences between test and reference strain GRs within
         % pairs of colonies
-    % test strain GR = (ref strain GR)*exp(test strain mut_effect)
+    % test strain GR = (ref strain GR)*(1 + test strain mut_effect)
     % test strain mut_effect drawn from poisson-distributed number of
         % reflected gamma distributions
     % The input into this function can hold one of the test strain mut_effects or

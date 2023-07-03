@@ -8,7 +8,7 @@ function [LL, gradient_dict] = ...
         % distribution of mutational effects on growth me_pdf_xvals is
         % described by real_me_pdf_smooth
     % 'me' is the mutational effect
-    % test_strain_mean = ref_mean * exp(me)
+    % test_strain_mean = ref_mean * (1 + me)
     % L (observations ) = 
     %    integral across region of interest(
     %        P(mutational effect = x | theta{DME}) *
@@ -40,7 +40,6 @@ function [LL, gradient_dict] = ...
 
     fitted_general_param_names = intersect(general_param_names, fitted_parameters);
     
-    %test_strain_mean_grid = ref_mean .* exp(strain_pdf_xvals);
     test_strain_mean_grid = ref_mean .* (1+strain_pdf_xvals);
     
     % pre-calculate some vectors used in LL_calc_within_pair_fast

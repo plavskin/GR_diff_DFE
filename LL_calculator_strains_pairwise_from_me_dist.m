@@ -83,7 +83,7 @@ function [combined_LL, unscaled_gradient_vector, grad_parameter_names] = ...
 %            current_strain_me_name = strcat(current_strain,'_me');
             test_petite_prop = parameter_dict(current_strain_pp_name);
 %            test_mut_effect = parameter_dict(current_strain_me_name);
-%            test_mean = ref_mean * exp(test_mut_effect);
+%            test_mean = ref_mean * (1 + test_mut_effect);
 
             strain_GR_diff_list = GR_diff_list(current_indices);
 
